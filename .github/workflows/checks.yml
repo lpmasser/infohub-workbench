@@ -57,11 +57,13 @@ jobs:
       - run: pnpm test
         if: matrix.frontend
       - run: pnpm build
-      # Exercise native behavior and warm the same dependency profile as releases.
-      - run: cargo test --release --features tauri/custom-protocol --locked --target ${{ matrix.target }} --manifest-path src-tauri/Cargo.toml
+        if: runner.os != 'Windows'
+      # Tauri builds the Windows frontend once; native tests reuse that output.
       - name: Build native Windows installer
         if: runner.os == 'Windows'
         run: pnpm tauri build --target ${{ matrix.target }} --bundles nsis --config src-tauri/tauri.smoke.conf.json -- --locked
+      # Exercise native behavior and warm the same dependency profile as releases.
+      - run: cargo test --release --features tauri/custom-protocol --locked --target ${{ matrix.target }} --manifest-path src-tauri/Cargo.toml
       - name: Checkout CLI for native Windows integration
         if: runner.os == 'Windows'
         uses: actions/checkout@v4
