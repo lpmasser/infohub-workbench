@@ -2,7 +2,7 @@
   "name": "infohub-workbench",
   "private": true,
   "type": "module",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "packageManager": "pnpm@10.27.0",
   "engines": {
     "node": ">=20"
