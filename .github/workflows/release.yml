@@ -72,16 +72,16 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            target: aarch64-apple-darwin
-            bundle: app
-          - os: macos-15-intel
-            target: x86_64-apple-darwin
+            target: universal-apple-darwin
+            toolchain_targets: aarch64-apple-darwin,x86_64-apple-darwin
             bundle: app
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            toolchain_targets: x86_64-pc-windows-msvc
             bundle: nsis
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
+            toolchain_targets: x86_64-unknown-linux-gnu
             bundle: appimage
     runs-on: ${{ matrix.os }}
     env:
@@ -97,11 +97,16 @@ jobs:
           cache: pnpm
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.toolchain_targets }}
+      - name: Match the Tauri macOS compiler environment
+        if: runner.os == 'macOS'
+        run: |
+          node -e "const c=require('./src-tauri/tauri.conf.json'); const v=c.bundle?.macOS?.minimumSystemVersion; if(v!==null) require('fs').appendFileSync(process.env.GITHUB_ENV,'MACOSX_DEPLOYMENT_TARGET='+(v||'10.13')+'\n');"
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
           shared-key: native-${{ runner.os }}-${{ matrix.target }}
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST MACOSX_DEPLOYMENT_TARGET
           cache-on-failure: true
       - name: Install Linux libraries
         if: runner.os == 'Linux'
@@ -139,7 +144,7 @@ jobs:
             const release_id = Number(process.env.RELEASE_ID);
             const assets = await github.paginate(github.rest.repos.listReleaseAssets, { ...context.repo, release_id, per_page: 100 });
             const targets = {
-              'darwin-aarch64': 'aarch64-apple-darwin', 'darwin-x86_64': 'x86_64-apple-darwin',
+              'darwin-aarch64': 'universal-apple-darwin', 'darwin-x86_64': 'universal-apple-darwin',
               'windows-x86_64': 'x86_64-pc-windows-msvc', 'linux-x86_64': 'x86_64-unknown-linux-gnu'
             };
             const platforms = {};
