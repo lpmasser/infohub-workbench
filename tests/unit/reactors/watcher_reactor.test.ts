@@ -1,3 +1,5 @@
+/** @vitest-environment jsdom */
+import { flushSync } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 import {
   create_watcher_reactor,
@@ -33,6 +35,7 @@ function bg_tab(is_dirty: boolean): () => BackgroundTabInfo {
 }
 
 async function flush_effects() {
+  flushSync();
   await Promise.resolve();
   await Promise.resolve();
 }
@@ -237,14 +240,15 @@ describe("watcher_reactor", () => {
     });
   });
 
-  it("ignores repeated self-write events while suppression is active", async () => {
+  it("checks the current disk revision even inside the old suppression window", async () => {
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();
     const tab_store = new TabStore();
     const watcher_port = create_mock_watcher_port();
-    const watcher_service = new WatcherService(watcher_port);
+    const watcher_service = new WatcherService(watcher_port, async () => {});
     const note_service = {
       open_note: vi.fn(),
+      refresh_external_note: vi.fn().mockResolvedValue(false),
       clear_open_note: vi.fn(),
     };
     const tab_service = {
@@ -284,26 +288,26 @@ describe("watcher_reactor", () => {
 
     await flush_effects();
 
-    watcher_service.suppress_next("notes/a.md");
     watcher_port._emit(changed_event("notes/a.md"));
     watcher_port._emit(changed_event("notes/a.md"));
 
     await flush_effects();
 
-    expect(note_service.open_note).not.toHaveBeenCalled();
+    expect(note_service.refresh_external_note).toHaveBeenCalled();
     expect(tab_service.mark_conflict).not.toHaveBeenCalled();
 
     unmount();
   });
 
-  it("ignores suppressed note_added events", async () => {
+  it("refreshes the tree for note additions even in the old suppression window", async () => {
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();
     const tab_store = new TabStore();
     const watcher_port = create_mock_watcher_port();
-    const watcher_service = new WatcherService(watcher_port);
+    const watcher_service = new WatcherService(watcher_port, async () => {});
     const note_service = {
       open_note: vi.fn(),
+      refresh_external_note: vi.fn().mockResolvedValue(false),
       clear_open_note: vi.fn(),
     };
     const tab_service = {
@@ -330,24 +334,25 @@ describe("watcher_reactor", () => {
 
     await flush_effects();
 
-    watcher_service.suppress_next("notes/new.md");
     watcher_port._emit(added_event("notes/new.md"));
 
     await flush_effects();
 
-    expect(action_registry.execute).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(action_registry.execute).toHaveBeenCalledWith("folder.refresh_tree");
 
     unmount();
   });
 
-  it("ignores suppressed note_removed events", async () => {
+  it("refreshes the tree for removals inside the old suppression window", async () => {
     const vault_store = new VaultStore();
     const editor_store = new EditorStore();
     const tab_store = new TabStore();
     const watcher_port = create_mock_watcher_port();
-    const watcher_service = new WatcherService(watcher_port);
+    const watcher_service = new WatcherService(watcher_port, async () => {});
     const note_service = {
       open_note: vi.fn(),
+      refresh_external_note: vi.fn().mockResolvedValue(false),
       clear_open_note: vi.fn(),
     };
     const tab_service = {
@@ -374,12 +379,12 @@ describe("watcher_reactor", () => {
 
     await flush_effects();
 
-    watcher_service.suppress_next("notes/deleted.md");
     watcher_port._emit(removed_event("notes/deleted.md"));
 
     await flush_effects();
 
-    expect(action_registry.execute).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 350));
+    expect(action_registry.execute).toHaveBeenCalledWith("folder.refresh_tree");
     expect(note_service.clear_open_note).not.toHaveBeenCalled();
     expect(tab_service.remove_tab).not.toHaveBeenCalled();
 

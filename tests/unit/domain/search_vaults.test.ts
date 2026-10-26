@@ -7,13 +7,13 @@ describe("search_vaults", () => {
     {
       id: as_vault_id("vault-dev"),
       name: "Dev Journal",
-      path: as_vault_path("/Users/a/vaults/dev-journal"),
+      path: as_vault_path("/fixtures/vaults/dev-journal"),
       created_at: 1,
     },
     {
       id: as_vault_id("vault-research"),
       name: "Research Notes",
-      path: as_vault_path("/Users/a/vaults/research"),
+      path: as_vault_path("/fixtures/vaults/research"),
       created_at: 1,
     },
   ];
@@ -40,13 +40,13 @@ describe("search_vaults", () => {
         {
           id: as_vault_id("vault-alpha"),
           name: "Knowledge Base",
-          path: as_vault_path("/Users/a/vaults/machine-learning"),
+          path: as_vault_path("/fixtures/vaults/machine-learning"),
           created_at: 1,
         },
         {
           id: as_vault_id("vault-beta"),
           name: "Machine Learning",
-          path: as_vault_path("/Users/a/vaults/notes"),
+          path: as_vault_path("/fixtures/vaults/notes"),
           created_at: 1,
         },
       ],

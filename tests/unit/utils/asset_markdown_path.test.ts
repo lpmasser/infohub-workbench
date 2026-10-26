@@ -95,13 +95,13 @@ describe("resolve_relative_asset_path", () => {
     expect(result).toBe("docs/.assets/img.png");
   });
 
-  it("clamps traversal at vault root", () => {
+  it("rejects paths outside the vault, matching link repair", () => {
     const result = resolve_relative_asset_path(
       "note.md",
       "../../.assets/img.png",
     );
 
-    expect(result).toBe(".assets/img.png");
+    expect(result).toBe("");
   });
 
   it("handles encoded spaces in src", () => {

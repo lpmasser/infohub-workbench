@@ -73,10 +73,28 @@ export class SessionService {
     return tabs[0]?.id ?? null;
   }
 
-  async save_latest_session(): Promise<void> {
+  async save_latest_session({ required = false } = {}): Promise<void> {
     const vault_id = this.get_active_vault_id();
     if (!vault_id) return;
 
+    const session = this.capture_session();
+    const saved_snapshot = required ? JSON.stringify(session) : null;
+
+    try {
+      await this.session_port.save_latest_session(vault_id, session);
+      if (
+        required &&
+        JSON.stringify(this.capture_session()) !== saved_snapshot
+      ) {
+        throw new Error("会话在保存期间发生变化，请重试退出");
+      }
+    } catch (error) {
+      log.error("Save session failed", { error });
+      if (required) throw error;
+    }
+  }
+
+  private capture_session(): VaultSession {
     const flushed = this.editor_service.flush();
     if (flushed) {
       this.editor_store.set_markdown(flushed.note_id, flushed.markdown);
@@ -88,13 +106,7 @@ export class SessionService {
       this.editor_service,
     );
 
-    const session = this.build_session();
-
-    try {
-      await this.session_port.save_latest_session(vault_id, session);
-    } catch (error) {
-      log.error("Save session failed", { error });
-    }
+    return this.build_session();
   }
 
   async load_latest_session(): Promise<VaultSession | null> {

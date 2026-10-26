@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { InfoHubOverview } from "$lib/features/infohub";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
@@ -338,6 +339,7 @@
 
   const sidebar_header_actions = $derived.by(() => {
     const view = stores.ui.sidebar_view;
+    if (view === "overview") return [];
     if (view === "starred") return starred_header_actions;
     if (view === "dashboard") return dashboard_header_actions;
     return explorer_header_actions;
@@ -392,6 +394,16 @@
             "dashboard",
           );
         }}
+        on_open_overview={() => {
+          if (stores.ui.sidebar_open && stores.ui.sidebar_view === "overview") {
+            void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+            return;
+          }
+          void action_registry.execute(
+            ACTION_IDS.ui_set_sidebar_view,
+            "overview",
+          );
+        }}
         on_open_commands={() =>
           void action_registry.execute(ACTION_IDS.omnibar_open)}
         on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}
@@ -413,7 +425,9 @@
               <Sidebar.Root collapsible="none" class="w-full">
                 <Sidebar.Header class="p-0">
                   <div class="SidebarHeader">
-                    {#if stores.ui.sidebar_view === "starred"}
+                    {#if stores.ui.sidebar_view === "overview"}
+                      <span class="SidebarHeader__title">工作汇总</span>
+                    {:else if stores.ui.sidebar_view === "starred"}
                       <span class="SidebarHeader__title">Starred</span>
                     {:else if stores.ui.sidebar_view === "dashboard"}
                       <span class="SidebarHeader__title">Dashboard</span>
@@ -484,6 +498,16 @@
                 </Sidebar.Header>
 
                 <Sidebar.Content class="overflow-hidden">
+                  {#if stores.ui.sidebar_view === "overview"}
+                    <InfoHubOverview
+                      on_open={(path) => {
+                        void action_registry.execute(
+                          ACTION_IDS.note_open,
+                          path,
+                        );
+                      }}
+                    />
+                  {/if}
                   {#if stores.ui.sidebar_view === "starred"}
                     <Sidebar.Group class="h-full">
                       <Sidebar.GroupContent class="h-full">

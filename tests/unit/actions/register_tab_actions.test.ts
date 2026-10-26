@@ -1394,3 +1394,24 @@ describe("register_tab_actions", () => {
     });
   });
 });
+
+it("opens overview entries as normal documents without changing the sidebar", async () => {
+  const { registry, stores, services } = create_tab_actions_harness();
+  stores.ui.set_sidebar_view("overview");
+  services.note.open_note.mockImplementation((path: string) => {
+    stores.editor.set_open_note(mock_open_note(path));
+    return Promise.resolve({
+      status: "opened",
+      selected_folder_path: "project",
+    });
+  });
+  await registry.execute(ACTION_IDS.note_open, "project/work.md");
+  expect(stores.editor.open_note?.meta.path).toBe("project/work.md");
+  expect(stores.tab.active_tab?.note_path).toBe("project/work.md");
+  expect(stores.ui.sidebar_view).toBe("overview");
+  expect(stores.ui.sidebar_open).toBe(true);
+  await registry.execute(ACTION_IDS.note_open, "project/attention.md");
+  expect(stores.editor.open_note?.meta.path).toBe("project/attention.md");
+  expect(stores.ui.sidebar_view).toBe("overview");
+  expect(stores.ui.sidebar_open).toBe(true);
+});

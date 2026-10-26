@@ -1,3 +1,4 @@
+import { create_infohub_tauri_adapter } from "$lib/features/infohub";
 import {
   create_assets_tauri_adapter,
   create_notes_tauri_adapter,
@@ -17,7 +18,6 @@ import { create_clipboard_tauri_adapter } from "$lib/features/clipboard";
 import { create_shell_tauri_adapter } from "$lib/features/shell";
 import { create_git_tauri_adapter } from "$lib/features/git";
 import { create_watcher_tauri_adapter } from "$lib/features/watcher";
-import { create_updater_tauri_adapter } from "$lib/features/updater";
 import {
   create_document_tauri_adapter,
   document_asset_url,
@@ -38,9 +38,9 @@ export function create_prod_ports(): Ports {
   const shell = create_shell_tauri_adapter();
   const git = create_git_tauri_adapter();
   const watcher = create_watcher_tauri_adapter();
-  const updater = create_updater_tauri_adapter();
 
   return {
+    infohub: create_infohub_tauri_adapter(),
     vault,
     notes,
     index,
@@ -58,7 +58,6 @@ export function create_prod_ports(): Ports {
     shell,
     git,
     watcher,
-    updater,
   };
 }
 

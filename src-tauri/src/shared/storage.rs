@@ -152,9 +152,9 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
             Ok(root) => crate::features::notes::service::safe_vault_abs(&root, &asset_rel),
             Err(_) => return Response::builder().status(404).body(Vec::new()).unwrap(),
         },
-        "document" => crate::features::document::service::document_asset_path(
-            app, parts[1], &asset_rel,
-        ),
+        "document" => {
+            crate::features::document::service::document_asset_path(app, parts[1], &asset_rel)
+        }
         _ => return Response::builder().status(400).body(Vec::new()).unwrap(),
     };
     let abs = match resolved {
@@ -172,4 +172,13 @@ pub fn handle_asset_request(app: &AppHandle, req: Request<Vec<u8>>) -> Response<
         .header("Content-Type", mime.as_ref())
         .body(bytes)
         .unwrap()
+}
+
+/// Derived local state must not become a document or a sync draft.
+pub fn vault_state_dir(root: &Path) -> PathBuf {
+    if let Ok(repo) = git2::Repository::open(root) {
+        repo.path().join("infohub-workbench")
+    } else {
+        root.join(crate::shared::constants::APP_DIR)
+    }
 }

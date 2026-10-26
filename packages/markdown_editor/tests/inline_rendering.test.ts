@@ -273,9 +273,9 @@ describe("escapes and entities", () => {
 
   test("SRC-013 frontmatter keeps escapes and entities literal", () => {
     const editor = open("---\ntitle: \\*a\\* &amp;\n---\n\nbody‸");
-    expect(line_with(editor, "title:").textContent).toBe(
-      "title: \\*a\\* &amp;",
-    );
+    expect(
+      editor.view.dom.querySelector(".md-frontmatter-value")?.textContent,
+    ).toBe("\\*a\\* &amp;");
   });
 });
 
@@ -321,7 +321,9 @@ describe("legacy html breaks", () => {
     expect(
       editor.view.contentDOM.querySelectorAll(".md-html-break"),
     ).toHaveLength(0);
-    expect(shown_text(editor)).toContain('title: "<br />"');
+    expect(
+      editor.view.dom.querySelector(".md-frontmatter-value")?.textContent,
+    ).toBe("<br />");
     expect(texts_of(editor, ".md-inline-code")).toEqual(["<br />"]);
   });
 
@@ -446,15 +448,15 @@ describe("headings and line prefixes", () => {
     expect(shown_text(editor)).toContain("***");
   });
 
-  test("SRC-011 a leading rule is a divider but real frontmatter stays literal source", () => {
+  test("SRC-011 a leading rule is a divider and frontmatter previews literal YAML values", () => {
     const rule = open("---\n\n# Heading\n\nbody‸");
     expect(rule.view.contentDOM.querySelector(".md-frontmatter")).toBeNull();
     expect(line_with(rule, "Heading").classList).toContain("md-heading-1");
 
     const metadata = open("---\ntitle: x\n---\n\n# Body‸");
-    expect(line_with(metadata, "title: x").classList).toContain(
-      "md-frontmatter",
-    );
+    expect(
+      metadata.view.dom.querySelector(".md-frontmatter-value")?.textContent,
+    ).toBe("x");
     expect(line_with(metadata, "Body").classList).toContain("md-heading-1");
     expect(line_with(metadata, "Body").classList).not.toContain(
       "md-frontmatter",
@@ -844,7 +846,7 @@ describe("links", () => {
     editor.view.contentDOM
       .querySelector<HTMLElement>("[data-md-link-target]")
       ?.dispatchEvent(new MouseEvent("click", { bubbles: true, button: 0 }));
-    expect(open_link).toHaveBeenCalledWith("folder/note.md#Part");
+    expect(open_link).toHaveBeenCalledWith("folder/note.md#Part", "wiki");
   });
 });
 

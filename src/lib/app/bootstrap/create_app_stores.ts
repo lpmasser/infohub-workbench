@@ -1,3 +1,4 @@
+import { InfoHubStore } from "$lib/features/infohub";
 import { VaultStore } from "$lib/features/vault";
 import { NotesStore } from "$lib/features/note";
 import { EditorStore } from "$lib/features/editor";
@@ -9,6 +10,7 @@ import { GitStore } from "$lib/features/git";
 import { LinksStore } from "$lib/features/links";
 
 export type AppStores = {
+  infohub: InfoHubStore;
   vault: VaultStore;
   notes: NotesStore;
   editor: EditorStore;
@@ -22,6 +24,7 @@ export type AppStores = {
 
 export function create_app_stores(): AppStores {
   return {
+    infohub: new InfoHubStore(),
     vault: new VaultStore(),
     notes: new NotesStore(),
     editor: new EditorStore(),

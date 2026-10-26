@@ -452,8 +452,6 @@ describe("NoteService", () => {
       rename_buffer: vi.fn(),
     } as unknown as EditorService;
 
-    const on_file_written = vi.fn();
-
     const service = new NoteService(
       notes_port,
       index_port,
@@ -465,13 +463,11 @@ describe("NoteService", () => {
       editor_service,
       () => 1,
       null,
-      on_file_written,
     );
 
     await service.delete_note(note_meta);
 
     expect(notes_store.recent_notes).toEqual([]);
-    expect(on_file_written).toHaveBeenCalledWith(note_meta.id);
   });
 
   it("updates recent notes when a note is renamed", async () => {
@@ -1686,4 +1682,53 @@ describe("NoteService save completion", () => {
       pending.notes_store.notes.some((note) => note.path === "named.md"),
     ).toBe(true);
   });
+});
+
+it("external refresh keeps edits made while the disk read is pending, and reloads a clean note", async () => {
+  const vault = new VaultStore();
+  vault.set_vault(create_test_vault());
+  const editor = new EditorStore();
+  const path = as_note_path("目录/文档.md");
+  const meta = {
+    id: path,
+    path,
+    name: "文档",
+    title: "文档",
+    mtime_ms: 1,
+    size_bytes: 1,
+  };
+  editor.set_open_note({
+    meta,
+    markdown: as_markdown_text("old"),
+    buffer_id: path,
+    is_dirty: false,
+  });
+  const notes = create_mock_notes_port();
+  const pending =
+    create_deferred<Awaited<ReturnType<NotesPort["read_note"]>>>();
+  notes.read_note = () => pending.promise;
+  let dirty = false;
+  const service = new NoteService(
+    notes,
+    create_mock_index_port(),
+    {} as AssetsPort,
+    vault,
+    new NotesStore(),
+    editor,
+    new OpStore(),
+    { is_dirty: () => dirty } as EditorService,
+    () => 2,
+  );
+  const refresh = service.refresh_external_note(path);
+  dirty = true;
+  pending.resolve({
+    meta: { ...meta, mtime_ms: 2 },
+    markdown: as_markdown_text("external"),
+  });
+  expect(await refresh).toBe(true);
+  expect(editor.open_note?.markdown).toBe("old");
+  dirty = false;
+  expect(await service.refresh_external_note(path)).toBe(false);
+  expect(editor.open_note?.markdown).toBe("external");
+  expect(editor.open_note?.is_dirty).toBe(false);
 });

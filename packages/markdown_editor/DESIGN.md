@@ -32,7 +32,7 @@ We skip the rest. CodeMirror already composes extensions through facets, fields,
 | Kind     | Examples                                                       | Renders with                            | Shows source when                           |
 | -------- | -------------------------------------------------------------- | --------------------------------------- | ------------------------------------------- |
 | `inline` | bold, italic, strike, inline code, link, image, escape, `<br>` | marks, hidden markers, inline widgets   | an empty caret touches the node             |
-| `line`   | heading, list item, quote, callout, rule, frontmatter          | line classes, hidden or replaced prefix | an empty caret is inside the line's prefix  |
+| `line`   | heading, list item, quote, callout, rule                       | line classes, hidden or replaced prefix | an empty caret is inside the line's prefix  |
 | `block`  | fenced code, table                                             | one block widget over whole lines       | while it is being typed, or after a command |
 
 The kind decides where decorations come from, which keeps CodeMirror's height map correct:
@@ -366,3 +366,5 @@ test("QUOTE-003 two Enters leave quoted prose", () => {
 
 - Tests are grouped by area and named by spec ID.
 - jsdom has no layout. Geometry, focus, scroll, and IME need native checks in the app.
+
+Frontmatter uses a `block` construct with `reveal: "caret"`. The generic YAML parser supplies display values and source offsets, never serialized replacements. Host callbacks resolve IDs and open exact paths; `refresh_blocks` refreshes presentation without changing source or history.

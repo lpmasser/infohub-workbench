@@ -1,5 +1,6 @@
 pub mod document;
 pub mod git;
+pub mod infohub;
 pub mod notes;
 pub mod search;
 pub mod settings;

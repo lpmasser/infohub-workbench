@@ -40,33 +40,40 @@ export async function apply_opened_vault_session(
   input.stores.ui.change_vault = {
     open: false,
     confirm_discard_open: false,
-    is_loading: false,
+    is_loading: true,
     error: null,
     unsaved_note_label: null,
   };
 
-  await input.registry.execute(ACTION_IDS.folder_refresh_tree);
-  await input.registry.execute(ACTION_IDS.git_check_repo);
+  try {
+    await input.registry.execute(ACTION_IDS.folder_refresh_tree);
+    await input.registry.execute(ACTION_IDS.git_check_repo);
 
-  const session = await input.services.session.load_latest_session();
-  if (session && session.tabs.length > 0) {
-    await input.services.session.restore_latest_session(session);
+    const session = await input.services.session.load_latest_session();
+    if (session && session.tabs.length > 0) {
+      await input.services.session.restore_latest_session(session);
+    }
+
+    if (input.stores.tab.tabs.length > 0) {
+      await open_active_tab_note(input);
+      sync_mounted_editor_to_active_tab(input);
+      return;
+    }
+
+    input.services.note.create_new_note([]);
+    const open_note = input.stores.editor.open_note;
+    if (!open_note) {
+      return;
+    }
+
+    input.stores.tab.open_tab(
+      open_note.meta.path,
+      open_note.meta.title || "Untitled",
+    );
+  } catch (error) {
+    input.stores.ui.change_vault.error = String(error);
+    throw error;
+  } finally {
+    input.stores.ui.change_vault.is_loading = false;
   }
-
-  if (input.stores.tab.tabs.length > 0) {
-    await open_active_tab_note(input);
-    sync_mounted_editor_to_active_tab(input);
-    return;
-  }
-
-  input.services.note.create_new_note([]);
-  const open_note = input.stores.editor.open_note;
-  if (!open_note) {
-    return;
-  }
-
-  input.stores.tab.open_tab(
-    open_note.meta.path,
-    open_note.meta.title || "Untitled",
-  );
 }

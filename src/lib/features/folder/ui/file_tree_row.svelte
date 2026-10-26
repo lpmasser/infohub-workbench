@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SyncMarker } from "$lib/features/infohub";
   import type { FlatTreeNode } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
   import * as ContextMenu from "$lib/components/ui/context-menu";
@@ -238,6 +239,7 @@
       {/if}
       <Folder class="TreeRow__type-icon" />
       <span class="TreeRow__label">{node.name}</span>
+      {#if !node.is_folder}<SyncMarker path={node.path} />{/if}
       {#if is_starred}
         <Star class="TreeRow__star-icon" />
       {/if}
@@ -255,6 +257,7 @@
       <span class="TreeRow__spacer" aria-hidden="true"></span>
       <FileText class="TreeRow__type-icon" />
       <span class="TreeRow__label">{node.name}</span>
+      {#if !node.is_folder}<SyncMarker path={node.path} />{/if}
       {#if is_starred}
         <Star class="TreeRow__star-icon" />
       {/if}

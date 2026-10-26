@@ -48,7 +48,6 @@ function create_service(markdown = "- one\n\n- two") {
     close_buffer: vi.fn(),
   };
   const index_port = { upsert_note: vi.fn().mockResolvedValue(undefined) };
-  const suppress_file_write = vi.fn();
   const reload_active_note = vi.fn().mockResolvedValue(undefined);
   const service = new LegacyMarkdownCleanupService(
     notes_port as never,
@@ -59,7 +58,6 @@ function create_service(markdown = "- one\n\n- two") {
     editor_service as never,
     notes_store,
     () => 100,
-    suppress_file_write,
     reload_active_note,
   );
   return {
@@ -68,7 +66,6 @@ function create_service(markdown = "- one\n\n- two") {
     tab_store,
     editor_store,
     editor_service,
-    suppress_file_write,
     reload_active_note,
   };
 }
@@ -94,12 +91,11 @@ describe("LegacyMarkdownCleanupService", () => {
     expect(notes_port.apply_markdown_cleanup).not.toHaveBeenCalled();
   });
 
-  it("suppresses watcher events before batch IO and refreshes search after apply", async () => {
-    const { service, notes_port, suppress_file_write } = create_service();
+  it("refreshes search after apply", async () => {
+    const { service, notes_port } = create_service();
     const preview = await service.preview();
     await service.apply(preview.id);
 
-    expect(suppress_file_write).toHaveBeenCalledWith("one.md");
     expect(notes_port.apply_markdown_cleanup).toHaveBeenCalledOnce();
   });
 

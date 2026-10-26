@@ -24,8 +24,7 @@ export type SearchCommandDefinition = {
     | "git_version_history"
     | "git_create_checkpoint"
     | "git_init_repo"
-    | "toggle_links_panel"
-    | "check_for_updates";
+    | "toggle_links_panel";
   label: string;
   description: string;
   keywords: string[];

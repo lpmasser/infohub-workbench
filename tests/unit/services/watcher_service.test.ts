@@ -5,7 +5,7 @@ import type { VaultId } from "$lib/shared/types/ids";
 
 function setup() {
   const port = create_mock_watcher_port();
-  const service = new WatcherService(port);
+  const service = new WatcherService(port, async () => {});
   return { port, service };
 }
 
@@ -68,44 +68,6 @@ describe("WatcherService", () => {
     await expect(service.stop()).resolves.toBeUndefined();
   });
 
-  it("suppress_next marks path as suppressed", () => {
-    const { service } = setup();
-
-    service.suppress_next("notes/test.md");
-
-    expect(service.is_suppressed("notes/test.md")).toBe(true);
-    expect(service.is_suppressed("notes/test.md")).toBe(true);
-  });
-
-  it("is_suppressed returns false for unknown path", () => {
-    const { service } = setup();
-
-    expect(service.is_suppressed("notes/unknown.md")).toBe(false);
-  });
-
-  it("matches suppressed paths case-insensitively", () => {
-    const { service } = setup();
-
-    service.suppress_next("Notes/Test.md");
-
-    expect(service.is_suppressed("notes/test.md")).toBe(true);
-  });
-
-  it("suppress_next resets timer on repeated calls", () => {
-    vi.useFakeTimers();
-    const { service } = setup();
-
-    service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(1500);
-    service.suppress_next("notes/test.md");
-    vi.advanceTimersByTime(1500);
-
-    expect(service.is_suppressed("notes/test.md")).toBe(true);
-    vi.advanceTimersByTime(501);
-    expect(service.is_suppressed("notes/test.md")).toBe(false);
-    vi.useRealTimers();
-  });
-
   it("subscribe replaces previous subscription", () => {
     const { port, service } = setup();
     const handler_1 = vi.fn();
@@ -122,4 +84,24 @@ describe("WatcherService", () => {
     expect(handler_1).not.toHaveBeenCalled();
     expect(handler_2).toHaveBeenCalledOnce();
   });
+});
+
+it("indexes a change arriving while the preceding snapshot is still being scanned", async () => {
+  let source = "first";
+  let indexed = "";
+  let finish: () => void = () => {};
+  const blocked = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  const service = new WatcherService(create_mock_watcher_port(), async () => {
+    const snapshot = source;
+    if (snapshot === "first") await blocked;
+    indexed = snapshot;
+  });
+  const first = service.refresh_index("vault-1" as VaultId);
+  source = "second";
+  await service.refresh_index("vault-1" as VaultId);
+  finish();
+  await first;
+  expect(indexed).toBe("second");
 });

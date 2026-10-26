@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "otterly",
-  "version": "0.4.1",
-  "identifier": "com.otterly.app",
+  "productName": "InfoHub Workbench",
+  "version": "../package.json",
+  "identifier": "de.eloyzh.infohub-workbench",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",
@@ -11,10 +11,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "nsis", "msi", "appimage", "deb"],
+    "targets": ["app", "appimage", "nsis"],
     "createUpdaterArtifacts": true,
     "windows": {
-      "signCommand": "pwsh -NoProfile -ExecutionPolicy Bypass -File ../scripts/sign_windows.ps1 %1"
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
     },
     "icon": [
       "icons/32x32.png",
@@ -26,11 +32,7 @@
     "macOS": {
       "signingIdentity": "-"
     },
-    "linux": {
-      "deb": {
-        "desktopTemplate": "linux/otterly.desktop"
-      }
-    },
+    "linux": {},
     "fileAssociations": [
       {
         "ext": ["md", "markdown"],
@@ -40,14 +42,24 @@
         "mimeType": "text/markdown",
         "contentTypes": ["net.daringfireball.markdown"]
       }
-    ]
+    ],
+    "resources": {
+      "gen/infohub-build.json": "infohub-build.json",
+      "../LICENSE": "licenses/Otterly-MIT.txt",
+      "../THIRD_PARTY_NOTICES.md": "licenses/THIRD_PARTY_NOTICES.md",
+      "../licenses/": "licenses/dependencies/"
+    }
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVEMkY0REEwMEVGODhEQkYKUldTL2pmZ09vRTB2N1p4bWhJRGxkc2lZLy9ocTU3b2VBT1R5NHVtSzNsWFpzTDVWckQ4cnhSbEsK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU4REU4OTRDNjM3MTE3NjcKUldSbkYzRmpUSW5lNkhQdzJZWW1SV0hUT0loSXdDYWJ5eTFrVzJibkVVQ3VYZFpuZWdMZmNYL2IK",
       "endpoints": [
-        "https://github.com/ajkdrag/otterly/releases/latest/download/latest.json"
-      ]
+        "https://github.com/lpmasser/infohub-workbench/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
+      },
+      "requireSignedVersion": true
     }
   },
   "app": {
@@ -56,7 +68,7 @@
       {
         "label": "main",
         "create": false,
-        "title": "otterly",
+        "title": "InfoHub Workbench",
         "width": 1200,
         "height": 820,
         "resizable": true,

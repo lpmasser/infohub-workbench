@@ -766,3 +766,83 @@ describe("CodeMirror editor port", () => {
     expect(session.get_markdown()).toBe(`${source}x: 1`);
   });
 });
+
+it("reveals Chinese heading anchors without changing Markdown, including duplicate slugs", async () => {
+  const source =
+    "# 开头\n\n文字\n\n## 维护与演化的判断\n\n说明\n\n## 维护与演化的判断\n\n后文";
+  const { session, view } = await open_editor(source);
+  session.reveal_heading?.(encodeURIComponent("维护与演化的判断"));
+  expect(view.state.selection.main.head).toBe(source.indexOf("## 维护"));
+  session.reveal_heading?.("维护与演化的判断-1");
+  expect(view.state.selection.main.head).toBe(source.lastIndexOf("## 维护"));
+  expect(session.get_markdown()).toBe(source);
+  expect(session.is_dirty()).toBe(false);
+});
+
+it("opens metadata in preview, navigates exact host references, and refreshes active and cached buffers without edits", async () => {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const source =
+    "---\nproject_id: project-1\nuses: [missing-1, project-1]\n---\nbody";
+  let reference: { title: string; path: string } | undefined = {
+    title: "项目",
+    path: "目录/中文 空格#100%.md",
+  };
+  const on_reference_click = vi.fn();
+  const session = await create_codemirror_editor_port({
+    resolve_asset_url_for_vault: (_v, p) => p,
+    copy_text: vi.fn(),
+  }).start_session({
+    root,
+    initial_markdown: source,
+    note_path: "first.md",
+    vault_id: as_vault_id("test-vault"),
+    resolve_frontmatter_reference: (id) =>
+      id === "project-1" ? reference : undefined,
+    events: {
+      on_markdown_change: vi.fn(),
+      on_dirty_state_change: vi.fn(),
+      on_reference_click,
+    },
+  });
+  sessions.push(session);
+  expect(root.querySelector(".md-frontmatter-reference")?.textContent).toBe(
+    "项目",
+  );
+  root.querySelector<HTMLButtonElement>(".md-frontmatter-reference")?.click();
+  expect(on_reference_click).toHaveBeenCalledWith(reference.path);
+  expect(session.get_markdown()).toBe(source);
+  expect(session.is_dirty()).toBe(false);
+  session.open_buffer({
+    note_path: "second.md",
+    vault_id: as_vault_id("test-vault"),
+    initial_markdown: source,
+    restore_policy: "fresh",
+  });
+  reference = { title: "已改名", path: "new.md" };
+  session.refresh_frontmatter?.();
+  expect(root.querySelector(".md-frontmatter-reference")?.textContent).toBe(
+    "已改名",
+  );
+  session.open_buffer({
+    note_path: "first.md",
+    vault_id: as_vault_id("test-vault"),
+    initial_markdown: "ignored",
+    restore_policy: "reuse_cache",
+  });
+  expect(root.querySelector(".md-frontmatter-reference")?.textContent).toBe(
+    "已改名",
+  );
+  expect(session.get_markdown()).toBe(source);
+  expect(session.is_dirty()).toBe(false);
+  reference = undefined;
+  session.refresh_frontmatter?.();
+  expect(root.querySelector(".md-frontmatter-reference")).toBeNull();
+  expect(root.querySelector(".md-frontmatter-value")?.textContent).toBe(
+    "project-1",
+  );
+  session.set_selection(8, 8);
+  expect(root.querySelector(".md-frontmatter-table")).toBeNull();
+  session.insert_text_at_cursor("x");
+  expect(session.is_dirty()).toBe(true);
+});

@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import type { MarkdownConfig } from "@lezer/markdown";
 import { get_blocks } from "../src/core/block_field";
 import { create_markdown_state } from "../src/core/editor";
@@ -235,14 +235,22 @@ describe("large documents", () => {
     const body = Array.from({ length: 800 }, () => paragraph).join("\n\n");
     const source = `${body}\n\n${table}\n`;
     expect(source.length).toBeGreaterThan(300_000);
-    const state = create_markdown_state(source, {
-      plugins: [commonmark(), gfm()],
-    });
-    const tables = get_blocks(state).filter(
-      (block) => block.construct.name === "table",
-    );
-    expect(tables).toHaveLength(1);
-    expect(tables[0]?.source).toBe(table);
+    // Verify initial full-tree indexing, not whether a shared runner can parse
+    // 300 KB inside the editor's wall-clock budget. Budget exhaustion uses the
+    // existing viewport fallback and is covered by the incremental parse tests.
+    const clock = vi.spyOn(Date, "now").mockReturnValue(Date.now());
+    try {
+      const state = create_markdown_state(source, {
+        plugins: [commonmark(), gfm()],
+      });
+      const tables = get_blocks(state).filter(
+        (block) => block.construct.name === "table",
+      );
+      expect(tables).toHaveLength(1);
+      expect(tables[0]?.source).toBe(table);
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   test("PERF-003 the table block survives typing at the top of a 300 KB note", () => {

@@ -25,7 +25,7 @@
   }
 
   function open_or_create_note(path: string) {
-    void action_registry.execute(ACTION_IDS.note_open_wiki_link, path);
+    void action_registry.execute(ACTION_IDS.note_open, path);
   }
 
   function open_url(url: string) {

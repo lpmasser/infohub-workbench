@@ -2,13 +2,14 @@
   import {
     Files,
     LayoutDashboard,
+    ListTodo,
     Settings,
     Star,
     CircleHelp,
     Search,
   } from "@lucide/svelte";
 
-  type SidebarView = "explorer" | "dashboard" | "starred";
+  import type { SidebarView } from "$lib/app/orchestration/ui_store.svelte";
 
   type Props = {
     sidebar_open: boolean;
@@ -16,6 +17,7 @@
     on_open_explorer: () => void;
     on_open_dashboard: () => void;
     on_open_starred: () => void;
+    on_open_overview: () => void;
     on_open_commands: () => void;
     on_open_help: () => void;
     on_open_settings: () => void;
@@ -27,6 +29,7 @@
     on_open_explorer,
     on_open_dashboard,
     on_open_starred,
+    on_open_overview,
     on_open_commands,
     on_open_help,
     on_open_settings,
@@ -82,6 +85,18 @@
       title="Starred"
     >
       <Star class="ActivityBar__icon" />
+    </button>
+    <button
+      type="button"
+      class="ActivityBar__button"
+      class:ActivityBar__button--active={sidebar_open &&
+        active_view === "overview"}
+      onclick={on_open_overview}
+      aria-pressed={sidebar_open && active_view === "overview"}
+      aria-label="工作汇总"
+      title="工作汇总"
+    >
+      <ListTodo class="ActivityBar__icon" />
     </button>
   </div>
 

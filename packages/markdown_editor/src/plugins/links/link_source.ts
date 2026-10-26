@@ -19,6 +19,7 @@ export type RenderedLink = {
   from: number;
   to: number;
   target: string;
+  kind?: "wiki";
   label: string;
   image?: RenderedImage;
   image_resize?: ImageResizeRange;
@@ -41,7 +42,7 @@ export function link_from_node(
     const raw_target = match[1].trim();
     const target = wiki_target(raw_target);
     const label = match[2]?.trim() || raw_target.split("#", 1)[0] || raw_target;
-    return { from: node.from, to: node.to, target, label };
+    return { from: node.from, to: node.to, target, label, kind: "wiki" };
   }
   if (node.name === "Autolink") {
     const url = first_child_text(state, node, "URL");

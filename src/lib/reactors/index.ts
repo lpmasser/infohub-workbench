@@ -1,4 +1,6 @@
-import { create_app_close_request_reactor } from "$lib/reactors/app_close_request.reactor.svelte";
+import { create_app_exit_reactor } from "./app_exit.reactor.svelte";
+import { create_workspace_queries_reactor } from "./workspace_queries.reactor.svelte";
+import type { InfoHubService, InfoHubStore } from "$lib/features/infohub";
 import { create_editor_sync_reactor } from "$lib/reactors/editor_sync.reactor.svelte";
 import { create_editor_width_reactor } from "$lib/reactors/editor_width.reactor.svelte";
 import { create_editor_zoom_reactor } from "$lib/reactors/editor_zoom.reactor.svelte";
@@ -17,7 +19,6 @@ import { create_local_links_sync_reactor } from "$lib/reactors/local_links_sync.
 import { create_watcher_reactor } from "$lib/reactors/watcher.reactor.svelte";
 import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.svelte";
 import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
-import { create_update_check_reactor } from "$lib/reactors/update_check.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorStore } from "$lib/features/editor";
@@ -41,6 +42,9 @@ import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 
 export type ReactorContext = {
+  update_blocked: () => boolean;
+  infohub_service: InfoHubService;
+  infohub_store: InfoHubStore;
   editor_store: EditorStore;
   ui_store: UIStore;
   op_store: OpStore;
@@ -67,12 +71,8 @@ export function mount_reactors(context: ReactorContext): () => void {
   const conflict_toast_manager = new ConflictToastManager();
 
   const unmounts = [
-    create_app_close_request_reactor(
-      context.tab_store,
-      context.ui_store,
-      context.action_registry,
-    ),
-    create_update_check_reactor(context.action_registry),
+    create_app_exit_reactor(context.update_blocked),
+    create_workspace_queries_reactor(context),
     create_editor_sync_reactor(
       context.editor_store,
       context.tab_store,

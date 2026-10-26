@@ -36,7 +36,7 @@ type LinkInfo = {
   reference_target: string;
 };
 type LinkTooltipOptions = {
-  open_link: (target: string) => void;
+  open_link: (target: string, kind?: "wiki") => void;
   copy_link?: (target: string) => void | Promise<void>;
   edit_key?: string;
 };
@@ -223,7 +223,8 @@ function create_preview_tooltip(
       target.textContent = info.target;
       preview.append(target);
       append_action(preview, "open", "Open", () => {
-        options.open_link(info.target);
+        if (info.kind === "wiki") options.open_link(info.target, "wiki");
+        else options.open_link(info.target);
       });
       if (!view.state.readOnly) {
         append_action(

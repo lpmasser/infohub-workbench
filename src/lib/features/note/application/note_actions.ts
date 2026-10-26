@@ -36,6 +36,7 @@ import { toast } from "svelte-sonner";
 type WikiLinkPayload = {
   raw_path: string;
   base_note_path: string;
+  fragment?: string;
 };
 
 type SaveRequestPayload = {
@@ -56,6 +57,9 @@ function parse_wiki_link_payload(payload: unknown): WikiLinkPayload | null {
   return {
     raw_path: record.raw_path,
     base_note_path: record.base_note_path,
+    ...(typeof record.fragment === "string"
+      ? { fragment: record.fragment }
+      : {}),
   };
 }
 
@@ -442,6 +446,8 @@ export function register_note_actions(input: ActionRegistrationInput) {
           stores.ui.set_selected_folder_path(result.selected_folder_path);
           clear_folder_filetree_state(input, result.selected_folder_path);
           cache_open_note_for_tab(tab.id);
+          if (parsed.fragment !== undefined)
+            services.editor.reveal_heading(opened_path, parsed.fragment);
         }
         if (result.status === "failed") {
           toast.error(result.error);

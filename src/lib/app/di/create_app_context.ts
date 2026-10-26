@@ -1,3 +1,6 @@
+import { untrack } from "svelte";
+import { install_app_exit } from "$lib/app/orchestration/app_exit";
+import { InfoHubService } from "$lib/features/infohub";
 import type { Ports } from "$lib/app/di/app_ports";
 import { create_app_stores } from "$lib/app/bootstrap/create_app_stores";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
@@ -19,7 +22,6 @@ import { HotkeyService } from "$lib/features/hotkey";
 import { ThemeService } from "$lib/features/theme";
 import { LinkRepairService, LinksService } from "$lib/features/links";
 import { WatcherService } from "$lib/features/watcher";
-import { UpdaterService } from "$lib/features/updater";
 import { mount_reactors } from "$lib/reactors";
 
 export type AppContext = ReturnType<typeof create_app_context>;
@@ -32,6 +34,10 @@ export function create_app_context(input: {
   const now_ms = input.now_ms ?? (() => Date.now());
   const stores = create_app_stores();
   const action_registry = new ActionRegistry();
+  const infohub_service = new InfoHubService(
+    input.ports.infohub,
+    stores.infohub,
+  );
 
   const search_service = new SearchService(
     input.ports.search,
@@ -47,10 +53,23 @@ export function create_app_context(input: {
     stores.tab,
     stores.op,
     {
-      on_internal_link_click: (raw_path, base_note_path) =>
+      resolve_frontmatter_reference: (id, field) =>
+        untrack(() => {
+          if (field === "ontology_id") return undefined;
+          const references = stores.infohub.overview_error
+            ? undefined
+            : stores.infohub.overview?.references;
+          return references && Object.hasOwn(references, id)
+            ? references[id]
+            : undefined;
+        }),
+      on_reference_click: (path) =>
+        void action_registry.execute(ACTION_IDS.note_open, path),
+      on_internal_link_click: (raw_path, base_note_path, fragment) =>
         void action_registry.execute(ACTION_IDS.note_open_wiki_link, {
           raw_path,
           base_note_path,
+          fragment,
         }),
       on_external_link_click: (url) =>
         void action_registry.execute(ACTION_IDS.shell_open_url, url),
@@ -89,7 +108,9 @@ export function create_app_context(input: {
     },
   );
 
-  const watcher_service = new WatcherService(input.ports.watcher);
+  const watcher_service = new WatcherService(input.ports.watcher, (vault_id) =>
+    input.ports.index.sync_index(vault_id),
+  );
 
   const note_service = new NoteService(
     input.ports.notes,
@@ -102,9 +123,6 @@ export function create_app_context(input: {
     editor_service,
     now_ms,
     link_repair_service,
-    (path) => {
-      watcher_service.suppress_next(path);
-    },
   );
 
   const markdown_cleanup_service = new LegacyMarkdownCleanupService(
@@ -116,9 +134,6 @@ export function create_app_context(input: {
     editor_service,
     stores.notes,
     now_ms,
-    (path) => {
-      watcher_service.suppress_next(path);
-    },
     async (path) => {
       await note_service.open_note(path, false, { force_reload: true });
     },
@@ -137,8 +152,6 @@ export function create_app_context(input: {
   );
 
   const shell_service = new ShellService(input.ports.shell, stores.vault);
-
-  const updater_service = new UpdaterService(input.ports.updater);
 
   const clipboard_service = new ClipboardService(
     input.ports.clipboard,
@@ -226,12 +239,28 @@ export function create_app_context(input: {
       git: git_service,
       hotkey: hotkey_service,
       theme: theme_service,
-      updater: updater_service,
     },
     default_mount_config: input.default_mount_config,
   });
 
+  const is_loading = () =>
+    stores.ui.startup.status === "loading" ||
+    stores.ui.startup.status === "error" ||
+    stores.ui.change_vault.is_loading ||
+    stores.ui.change_vault.error !== null;
+  const has_unsaved = () =>
+    editor_service.is_dirty() ||
+    Boolean(stores.editor.open_note?.is_dirty) ||
+    stores.tab.tabs.some((tab) => tab.is_dirty);
+  const cleanup_exit = install_app_exit(
+    session_service,
+    is_loading,
+    has_unsaved,
+  );
   const cleanup_reactors = mount_reactors({
+    update_blocked: () => is_loading() || has_unsaved(),
+    infohub_service,
+    infohub_store: stores.infohub,
     editor_store: stores.editor,
     ui_store: stores.ui,
     op_store: stores.op,
@@ -258,6 +287,7 @@ export function create_app_context(input: {
     stores,
     action_registry,
     destroy: () => {
+      cleanup_exit();
       cleanup_reactors();
       editor_service.unmount();
       void watcher_service.stop();

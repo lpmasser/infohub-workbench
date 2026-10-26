@@ -7,11 +7,9 @@ import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { VaultFsEvent } from "$lib/features/watcher";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
-import { create_logger } from "$lib/shared/utils/logger";
 import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
 
-const log = create_logger("watcher_reactor");
 const TREE_REFRESH_DEBOUNCE_MS = 300;
 
 export type BackgroundTabInfo = { is_dirty: boolean } | null;
@@ -65,10 +63,14 @@ export function resolve_watcher_event_decision(
         open_note_path &&
         paths_equal_ignore_case(event.note_path, open_note_path)
       ) {
-        return { action: "clear_and_refresh", note_path: rp };
+        return is_dirty
+          ? { action: "mark_conflict", note_path: rp }
+          : { action: "clear_and_refresh", note_path: rp };
       }
       if (find_background_tab(event.note_path)) {
-        return { action: "remove_background_tab_and_refresh", note_path: rp };
+        return find_background_tab(event.note_path)?.is_dirty
+          ? { action: "mark_conflict", note_path: rp }
+          : { action: "remove_background_tab_and_refresh", note_path: rp };
       }
       return { action: "refresh_tree" };
     }
@@ -94,6 +96,8 @@ export function create_watcher_reactor(
       tree_refresh_timer = setTimeout(() => {
         tree_refresh_timer = null;
         void action_registry.execute(ACTION_IDS.folder_refresh_tree);
+        const vault_id = vault_store.vault?.id;
+        if (vault_id) void watcher_service.refresh_index(vault_id);
       }, TREE_REFRESH_DEBOUNCE_MS);
     }
 
@@ -104,12 +108,8 @@ export function create_watcher_reactor(
     }
 
     function handle_event(event: VaultFsEvent) {
-      if (watcher_service.is_suppressed(event.note_path)) {
-        log.info("Suppressed self-triggered event", {
-          path: event.note_path,
-        });
-        return;
-      }
+      if (event.vault_id !== vault_store.vault?.id) return;
+      debounced_tree_refresh();
 
       const decision = resolve_watcher_event_decision(
         event,
@@ -121,15 +121,23 @@ export function create_watcher_reactor(
 
       switch (decision.action) {
         case "reload":
-          void note_service.open_note(decision.note_path, false, {
-            force_reload: true,
-          });
-          break;
         case "mark_conflict":
-          tab_service.mark_conflict(decision.note_path);
+          if (event.type === "note_removed") {
+            tab_service.mark_conflict(decision.note_path);
+          } else if (editor_store.open_note?.meta.path === decision.note_path) {
+            void note_service
+              .refresh_external_note(decision.note_path)
+              .then((conflict) => {
+                if (conflict && vault_store.vault?.id === event.vault_id)
+                  tab_service.mark_conflict(decision.note_path);
+              });
+          } else {
+            tab_service.mark_conflict(decision.note_path);
+          }
           break;
         case "invalidate_tab_cache":
           tab_service.invalidate_cache(decision.note_path);
+          note_service.invalidate_external_buffer(decision.note_path);
           break;
         case "refresh_tree":
           debounced_tree_refresh();

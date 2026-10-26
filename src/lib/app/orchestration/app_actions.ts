@@ -5,13 +5,9 @@ import { to_editor_buffer_view_state } from "$lib/shared/types/editor";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import { apply_opened_vault_session } from "$lib/features/vault";
-import { detect_platform } from "$lib/shared/utils/detect_platform";
-import { toast } from "svelte-sonner";
 import { create_logger } from "$lib/shared/utils/logger";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const log = create_logger("app_actions");
-const UPDATE_READY_TOAST_ID = "update-ready";
 const is_performance_logging_enabled =
   import.meta.env.DEV && import.meta.env.MODE !== "test";
 
@@ -153,100 +149,6 @@ async function execute_app_mounted(input: ActionRegistrationInput) {
   }
 }
 
-async function execute_app_check_for_updates(input: ActionRegistrationInput) {
-  if (!detect_platform().is_tauri) {
-    toast.info("Updates are only available in the desktop app");
-    return;
-  }
-
-  const loading_toast_id = toast.loading("Checking for updates...");
-  const result = await input.services.updater.download_update();
-  toast.dismiss(loading_toast_id);
-
-  if (result.status === "failed") {
-    toast.error("Failed to check for updates");
-    return;
-  }
-  if (result.status === "up_to_date") {
-    toast.success("Otterly is up to date");
-    return;
-  }
-  show_update_ready_prompt(input, result.version);
-}
-
-// "Later" stops these prompts for the session. The manual check still shows
-// the prompt.
-async function execute_app_check_for_updates_in_background(
-  input: ActionRegistrationInput,
-) {
-  if (input.stores.ui.update_prompt_dismissed) return;
-  const result = await input.services.updater.download_update();
-  if (result.status !== "ready" || input.stores.ui.update_prompt_dismissed) {
-    return;
-  }
-  show_update_ready_prompt(input, result.version);
-}
-
-function show_update_ready_prompt(
-  input: ActionRegistrationInput,
-  version: string,
-) {
-  const dismiss = () => {
-    input.stores.ui.update_prompt_dismissed = true;
-  };
-  // A fixed id replaces an open prompt instead of stacking another one.
-  toast.info(`Otterly v${version} is ready`, {
-    id: UPDATE_READY_TOAST_ID,
-    description: "Restart to finish updating.",
-    duration: Number.POSITIVE_INFINITY,
-    action: {
-      label: "Restart",
-      onClick: () =>
-        void input.registry.execute(ACTION_IDS.app_restart_to_update),
-    },
-    cancel: { label: "Later", onClick: dismiss },
-    onDismiss: dismiss,
-  });
-}
-
-async function execute_app_restart_to_update(input: ActionRegistrationInput) {
-  // Restarting skips the quit flow, so save the session the way quit does.
-  // It keeps open tabs and unsaved edits.
-  try {
-    await input.services.session.save_latest_session();
-  } catch (error) {
-    log.error("Session save before update failed", { error: String(error) });
-    toast.error("Failed to save the session. Update not installed.");
-    return;
-  }
-
-  const installed = await input.services.updater.install_and_relaunch();
-  if (!installed) toast.error("Failed to install the update");
-}
-
-async function execute_app_confirm_quit(input: ActionRegistrationInput) {
-  if (!detect_platform().is_tauri || input.stores.ui.quit_confirm.is_quitting) {
-    return;
-  }
-
-  input.stores.ui.quit_confirm = {
-    open: true,
-    is_quitting: true,
-  };
-
-  try {
-    await input.services.session.save_latest_session();
-    await getCurrentWindow().destroy();
-  } catch (error) {
-    input.stores.ui.quit_confirm = {
-      open: true,
-      is_quitting: false,
-    };
-    log.error("Quit failed", { error: String(error) });
-    toast.error("Failed to quit Otterly");
-  }
-}
-
 export function register_app_actions(input: ActionRegistrationInput) {
   const { registry, services, stores } = input;
 
@@ -286,58 +188,6 @@ export function register_app_actions(input: ActionRegistrationInput) {
     label: "Toggle Source Mode",
     execute: () => {
       services.editor.toggle_source_mode();
-    },
-  });
-
-  registry.register({
-    id: ACTION_IDS.app_check_for_updates,
-    label: "Check for Updates",
-    execute: async () => execute_app_check_for_updates(input),
-  });
-
-  registry.register({
-    id: ACTION_IDS.app_check_for_updates_in_background,
-    label: "Check for Updates in Background",
-    execute: async () => execute_app_check_for_updates_in_background(input),
-  });
-
-  registry.register({
-    id: ACTION_IDS.app_restart_to_update,
-    label: "Restart to Update",
-    execute: async () => execute_app_restart_to_update(input),
-  });
-
-  registry.register({
-    id: ACTION_IDS.app_request_quit,
-    label: "Request Quit",
-    execute: () => {
-      if (stores.ui.quit_confirm.is_quitting) {
-        return;
-      }
-      stores.ui.quit_confirm = {
-        open: true,
-        is_quitting: false,
-      };
-    },
-  });
-
-  registry.register({
-    id: ACTION_IDS.app_confirm_quit,
-    label: "Confirm Quit",
-    execute: async () => execute_app_confirm_quit(input),
-  });
-
-  registry.register({
-    id: ACTION_IDS.app_cancel_quit,
-    label: "Cancel Quit",
-    execute: () => {
-      if (stores.ui.quit_confirm.is_quitting) {
-        return;
-      }
-      stores.ui.quit_confirm = {
-        open: false,
-        is_quitting: false,
-      };
     },
   });
 }

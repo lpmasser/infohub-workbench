@@ -1,3 +1,4 @@
+import type { FrontmatterOptions } from "@otterly/markdown-editor";
 import type { VaultId } from "$lib/shared/types/ids";
 import type {
   CodeBlockViewStates,
@@ -32,6 +33,8 @@ export type EditorSession = {
   mark_clean: (note_path?: string, saved_markdown?: string) => void;
   is_dirty: () => boolean;
   focus: () => void;
+  refresh_frontmatter?: () => void;
+  reveal_heading?: (fragment: string) => void;
   // Switches a Markdown note between its rich and source views. Does nothing
   // for other files.
   toggle_source_mode: () => void;
@@ -55,7 +58,12 @@ export type EditorEventHandlers = {
   on_cursor_change?: (info: CursorInfo) => void;
   on_view_mode_change?: (mode: EditorViewMode) => void;
   on_code_block_view_states_change?: (heights: CodeBlockViewStates) => void;
-  on_internal_link_click?: (raw_path: string, base_note_path: string) => void;
+  on_internal_link_click?: (
+    raw_path: string,
+    base_note_path: string,
+    fragment?: string,
+  ) => void;
+  on_reference_click?: (path: string) => void;
   on_external_link_click?: (url: string) => void;
   on_file_link_click?: (file_path: string) => void;
   on_image_paste_requested?: (payload: PastedImagePayload) => void;
@@ -63,6 +71,7 @@ export type EditorEventHandlers = {
 };
 
 export type EditorSessionConfig = {
+  resolve_frontmatter_reference?: FrontmatterOptions["resolve_id"];
   root: HTMLElement;
   initial_markdown: string;
   note_path: string;

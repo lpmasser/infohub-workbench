@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistry, UIStore } from "$lib/app";
 import type { DocumentService } from "$lib/features/document/application/document_service";
@@ -99,6 +100,7 @@ export function register_document_actions(input: DocumentActionInput) {
         const result = await services.document.save();
         if (result.status !== "saved") {
           report_save(result);
+          await invoke("app_exit_cancel");
           return;
         }
       }
@@ -110,8 +112,9 @@ export function register_document_actions(input: DocumentActionInput) {
   registry.register({
     id: ACTION_IDS.document_cancel_close,
     label: "Cancel",
-    execute: () => {
+    execute: async () => {
       stores.ui.document_close_confirm = { open: false, is_closing: false };
+      await invoke("app_exit_cancel");
     },
   });
 }

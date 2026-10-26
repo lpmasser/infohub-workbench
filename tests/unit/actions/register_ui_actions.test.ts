@@ -94,41 +94,47 @@ describe("register_ui_actions", () => {
     expect(stores.ui.vault_dashboard.open).toBe(false);
   });
 
-  it("accepts dashboard sidebar view", async () => {
-    const registry = new ActionRegistry();
-    let refresh_called = 0;
-    const stores = {
-      ui: new UIStore(),
-      vault: new VaultStore(),
-      notes: new NotesStore(),
-      editor: new EditorStore(),
-      op: new OpStore(),
-      search: new SearchStore(),
-      tab: new TabStore(),
-      git: new GitStore(),
-    };
+  it.each(["dashboard", "overview"])(
+    "accepts %s sidebar view",
+    async (view) => {
+      const registry = new ActionRegistry();
+      let refresh_called = 0;
+      const stores = {
+        ui: new UIStore(),
+        vault: new VaultStore(),
+        notes: new NotesStore(),
+        editor: new EditorStore(),
+        op: new OpStore(),
+        search: new SearchStore(),
+        tab: new TabStore(),
+        git: new GitStore(),
+      };
 
-    register_ui_actions({
-      registry,
-      stores,
-      services: {
-        vault: {
-          refresh_dashboard_stats: async () => {
-            refresh_called += 1;
-            return await Promise.resolve({ status: "skipped" as const });
+      register_ui_actions({
+        registry,
+        stores,
+        services: {
+          vault: {
+            refresh_dashboard_stats: async () => {
+              refresh_called += 1;
+              return await Promise.resolve({ status: "skipped" as const });
+            },
           },
+          shell: { open_url: async () => {} },
+        } as never,
+        default_mount_config: {
+          reset_app_state: true,
+          bootstrap_default_vault_path: null,
         },
-        shell: { open_url: async () => {} },
-      } as never,
-      default_mount_config: {
-        reset_app_state: true,
-        bootstrap_default_vault_path: null,
-      },
-    });
+      });
 
-    expect(stores.ui.sidebar_view).toBe("explorer");
-    await registry.execute(ACTION_IDS.ui_set_sidebar_view, "dashboard");
-    expect(stores.ui.sidebar_view).toBe("dashboard");
-    expect(refresh_called).toBe(1);
-  });
+      expect(stores.ui.sidebar_view).toBe("explorer");
+      stores.ui.sidebar_open = false;
+      await registry.execute(ACTION_IDS.ui_set_sidebar_view, view);
+      expect(stores.ui.sidebar_view).toBe(view);
+      expect(stores.ui.sidebar_open).toBe(true);
+      expect(stores.tab.tabs).toEqual([]);
+      expect(refresh_called).toBe(view === "dashboard" ? 1 : 0);
+    },
+  );
 });

@@ -8,7 +8,7 @@ import { links_theme } from "./theme.js";
 export type LinkOptions = {
   // Called for a plain click or Enter on a rendered link. Relative note paths
   // arrive as written; the host resolves them.
-  open_link: (target: string) => void;
+  open_link: (target: string, kind?: "wiki") => void;
   copy_link?: (target: string) => void | Promise<void>;
   // Key that opens the link editor. Defaults to Mod-k.
   edit_key?: string;
@@ -65,7 +65,7 @@ export function links(options: LinkOptions): MarkdownPlugin {
 
 function link_element(
   link: RenderedLink,
-  open_link: (target: string) => void,
+  open_link: (target: string, kind?: "wiki") => void,
 ): HTMLElement {
   const element = document.createElement("a");
   element.className = "md-link-rendered";
@@ -78,12 +78,14 @@ function link_element(
     if (event.button !== 0 || is_modified(event)) return;
     event.preventDefault();
     event.stopPropagation();
-    open_link(link.target);
+    if (link.kind) open_link(link.target, link.kind);
+    else open_link(link.target);
   });
   element.addEventListener("keydown", (event) => {
     if (event.key !== "Enter" || is_modified(event)) return;
     event.preventDefault();
-    open_link(link.target);
+    if (link.kind) open_link(link.target, link.kind);
+    else open_link(link.target);
   });
   return element;
 }
@@ -95,7 +97,7 @@ function is_modified(event: MouseEvent | KeyboardEvent): boolean {
 class LinkWidget extends WidgetType {
   constructor(
     readonly link: RenderedLink,
-    readonly open_link: (target: string) => void,
+    readonly open_link: (target: string, kind?: "wiki") => void,
     readonly images: ImageRenderer | null,
   ) {
     super();

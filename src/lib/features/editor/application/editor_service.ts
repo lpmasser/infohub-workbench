@@ -1,3 +1,4 @@
+import type { FrontmatterOptions } from "@otterly/markdown-editor";
 import type {
   BufferRestorePolicy,
   EditorPort,
@@ -30,7 +31,13 @@ function note_name_from_path(path: string): string {
 }
 
 export type EditorServiceCallbacks = {
-  on_internal_link_click: (raw_path: string, base_note_path: string) => void;
+  resolve_frontmatter_reference?: FrontmatterOptions["resolve_id"];
+  on_reference_click?: (path: string) => void;
+  on_internal_link_click: (
+    raw_path: string,
+    base_note_path: string,
+    fragment?: string,
+  ) => void;
   on_external_link_click: (url: string) => void;
   on_file_link_click: (file_path: string) => void;
   on_image_paste_requested: (
@@ -52,6 +59,38 @@ export class EditorService {
   private host_root: HTMLDivElement | null = null;
   private active_note: OpenNoteState | null = null;
   private session_generation = 0;
+  private navigation_revision = 0;
+  private pending_heading: { path: string; fragment: string } | null = null;
+
+  refresh_frontmatter(): void {
+    this.session?.refresh_frontmatter?.();
+  }
+
+  reveal_heading(path: string, fragment: string): void {
+    this.navigation_revision++;
+    this.pending_heading = { path, fragment };
+    this.apply_pending_heading();
+  }
+
+  private apply_pending_heading(): void {
+    if (
+      !this.pending_heading ||
+      this.pending_heading.path !== this.active_note?.meta.path ||
+      !this.session
+    )
+      return;
+    const request = this.pending_heading;
+    const session = this.session;
+    requestAnimationFrame(() => {
+      if (this.pending_heading !== request) return;
+      this.pending_heading = null;
+      if (
+        this.session === session &&
+        this.active_note?.meta.path === request.path
+      )
+        session.reveal_heading?.(request.fragment);
+    });
+  }
 
   constructor(
     private readonly editor_port: EditorPort,
@@ -113,6 +152,7 @@ export class EditorService {
       view_state,
     });
     this.focus();
+    this.apply_pending_heading();
   }
 
   rename_buffer(old_note_path: NotePath, new_note_path: NotePath) {
@@ -165,9 +205,16 @@ export class EditorService {
     if (value < 0) return;
     const session = this.session;
     const note = this.active_note;
+    const navigation_revision = this.navigation_revision;
+    if (this.pending_heading?.path === note?.meta.path) return;
     if (session?.set_scroll_top) {
       requestAnimationFrame(() => {
-        if (this.session === session && this.active_note === note)
+        if (
+          this.session === session &&
+          this.active_note === note &&
+          this.navigation_revision === navigation_revision &&
+          !this.pending_heading
+        )
           session.set_scroll_top?.(value);
       });
       return;
@@ -338,9 +385,24 @@ export class EditorService {
           code_block_view_states: heights,
         });
       },
-      on_internal_link_click: (raw_path: string, base_note_path: string) => {
+      on_internal_link_click: (
+        raw_path: string,
+        base_note_path: string,
+        fragment?: string,
+      ) => {
         if (!this.is_generation_current(generation)) return;
-        this.callbacks.on_internal_link_click(raw_path, base_note_path);
+        if (fragment === undefined)
+          this.callbacks.on_internal_link_click(raw_path, base_note_path);
+        else
+          this.callbacks.on_internal_link_click(
+            raw_path,
+            base_note_path,
+            fragment,
+          );
+      },
+      on_reference_click: (path: string) => {
+        if (this.is_generation_current(generation))
+          this.callbacks.on_reference_click?.(path);
       },
       on_external_link_click: (url: string) => {
         if (!this.is_generation_current(generation)) return;
@@ -380,6 +442,8 @@ export class EditorService {
 
     const next_session = await this.editor_port.start_session({
       root: host_root,
+      resolve_frontmatter_reference:
+        this.callbacks.resolve_frontmatter_reference,
       initial_markdown: active_note.markdown,
       note_path: active_note.meta.path,
       vault_id: this.vault_store.vault?.id ?? null,
@@ -392,6 +456,7 @@ export class EditorService {
     }
 
     this.session = next_session;
+    this.apply_pending_heading();
   }
 
   private teardown_session() {

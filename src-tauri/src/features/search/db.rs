@@ -89,7 +89,7 @@ pub(crate) fn extract_meta(abs: &Path, vault_root: &Path) -> Result<IndexNoteMet
 }
 
 fn db_path(vault_root: &Path) -> PathBuf {
-    vault_root.join(constants::APP_DIR).join("search.db")
+    crate::shared::storage::vault_state_dir(vault_root).join("search.db")
 }
 
 const EXPECTED_FTS_COLUMNS: &str = "title, name, path, body";

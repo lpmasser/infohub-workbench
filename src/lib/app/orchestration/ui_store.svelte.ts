@@ -30,7 +30,7 @@ import type {
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 type AsyncStatus = "idle" | "loading" | "error";
-type SidebarView = "explorer" | "dashboard" | "starred";
+export type SidebarView = "explorer" | "dashboard" | "starred" | "overview";
 type ContextRailTab = "links";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
@@ -149,11 +149,6 @@ const INITIAL_MARKDOWN_CLEANUP_DIALOG = {
 const INITIAL_CHECKPOINT_DIALOG = {
   open: false,
   description: "",
-} as const;
-
-const INITIAL_QUIT_CONFIRM = {
-  open: false,
-  is_quitting: false,
 } as const;
 
 const INITIAL_HOTKEY_RECORDER: HotkeyRecorderState = {
@@ -348,19 +343,11 @@ export class UIStore {
     description: string;
   }>({ ...INITIAL_CHECKPOINT_DIALOG });
 
-  quit_confirm = $state<{
-    open: boolean;
-    is_quitting: boolean;
-  }>({ ...INITIAL_QUIT_CONFIRM });
-
   // Document windows only: closing with unsaved edits asks first.
   document_close_confirm = $state<{ open: boolean; is_closing: boolean }>({
     open: false,
     is_closing: false,
   });
-
-  // Set when the user picks "Later" on the update prompt. Lasts for the session.
-  update_prompt_dismissed = $state(false);
 
   context_rail_open = $state(false);
   context_rail_tab = $state<ContextRailTab>("links");
@@ -518,7 +505,6 @@ export class UIStore {
     this.version_history_dialog = { ...INITIAL_VERSION_HISTORY_DIALOG };
     this.markdown_cleanup_dialog = { ...INITIAL_MARKDOWN_CLEANUP_DIALOG };
     this.checkpoint_dialog = { ...INITIAL_CHECKPOINT_DIALOG };
-    this.quit_confirm = { ...INITIAL_QUIT_CONFIRM };
     this.context_rail_open = false;
     this.context_rail_tab = "links";
   }

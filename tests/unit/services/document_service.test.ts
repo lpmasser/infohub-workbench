@@ -8,7 +8,7 @@ import type {
 } from "$lib/features/editor/ports";
 
 const file: DocumentFile = {
-  path: "/Users/me/Downloads/readme.md",
+  path: "/fixtures/downloads/readme.md",
   name: "readme.md",
   text: "# Hello",
   mtime_ms: 100,

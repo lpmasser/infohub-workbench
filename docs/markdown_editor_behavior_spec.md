@@ -125,11 +125,11 @@ A synthetic giant single paragraph remains a known reparse cost. Parser time bud
 - **Expected:** Each note's source, history, and clean baseline stay independent. Saving one cannot clear another note's dirty state.
 - **Edge cases/notes:** A fresh disk restoration deliberately replaces a cached state; ordinary cache reuse retains its history.
 
-### SRC-011. Frontmatter stays literal and distinguishable from a divider
+### SRC-011. Frontmatter previews properties and preserves editable YAML
 
 - **Setup/action:** Open valid YAML frontmatter, a leading horizontal rule, and an unfinished metadata draft; insert a closing metadata fence.
-- **Expected:** Recognized metadata stays literal and keeps source exact. Rendering and parsing update at its actual closing boundary; a real body divider keeps divider behavior.
-- **Edge cases/notes:** Do not activate links, tasks, tables, or prose commands inside recognized metadata. Cleanup conservatively protects unfinished metadata even when the editor presents it as editable prose.
+- **Expected:** Valid YAML mappings preview as field/value rows and list tags. A caret inside the header reveals the original editable YAML; returning to the body restores the preview. Opening, refreshing references, and navigation never rewrite source. Host-provided exact ID references display titles and open their mapped paths; unknown IDs stay literal. A real body divider keeps divider behavior.
+- **Edge cases/notes:** Do not interpret Markdown links, tasks, tables, or prose commands inside recognized metadata. Invalid YAML remains source. Cleanup conservatively protects unfinished metadata even when the editor presents it as editable prose.
 
 ### SRC-012. Unknown syntax remains editable and preserved
 

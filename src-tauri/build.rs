@@ -1,7 +1,44 @@
 fn main() {
+    emit_build_identity();
     ensure_default_icon();
     emit_icon_rerun();
     tauri_build::build()
+}
+
+fn emit_build_identity() {
+    let git = |args: &[&str]| {
+        let output = std::process::Command::new("git")
+            .args(args)
+            .output()
+            .expect("Git is required to identify this build");
+        assert!(output.status.success(), "Could not identify build source");
+        String::from_utf8(output.stdout).unwrap().trim().to_string()
+    };
+    let commit = git(&["rev-parse", "HEAD"]);
+    assert!(commit.len() == 40 && commit.bytes().all(|c| c.is_ascii_hexdigit()));
+    for name in ["HEAD", "packed-refs"] {
+        println!(
+            "cargo:rerun-if-changed={}",
+            git(&["rev-parse", "--git-path", name])
+        );
+    }
+    let branch = std::process::Command::new("git")
+        .args(["symbolic-ref", "--quiet", "HEAD"])
+        .output()
+        .unwrap();
+    if branch.status.success() {
+        let name = String::from_utf8(branch.stdout).unwrap();
+        println!(
+            "cargo:rerun-if-changed={}",
+            git(&["rev-parse", "--git-path", name.trim()])
+        );
+    }
+    std::fs::create_dir_all("gen").unwrap();
+    std::fs::write(
+        "gen/infohub-build.json",
+        format!("{{\"commit\":\"{commit}\"}}\n"),
+    )
+    .unwrap();
 }
 
 fn ensure_default_icon() {

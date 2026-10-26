@@ -1007,6 +1007,13 @@ pub(crate) fn invalidate_folder_cache(vault_id: &str, folder_path: &str) {
     }
 }
 
+pub(crate) fn invalidate_vault_folder_cache(vault_id: &str) {
+    if let Ok(mut cache) = folder_cache().lock() {
+        let prefix = format!("{vault_id}:");
+        cache.retain(|key, _| !key.starts_with(&prefix));
+    }
+}
+
 fn parent_folder_path(path: &str) -> String {
     path.rsplit_once('/')
         .map(|(parent, _)| parent.to_string())

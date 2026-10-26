@@ -1,93 +1,9 @@
-<img src="./assets/icon.png" alt="Otterly icon" width="96">
+# InfoHub Workbench
 
-[![Release](https://github.com/ajkdrag/otterly/actions/workflows/release.yml/badge.svg)](https://github.com/ajkdrag/otterly/actions/workflows/release.yml)
+A local-first desktop workspace for reading, navigating and maintaining InfoHub documents. Forked from [Otterly](https://github.com/ajkdrag/otterly); the original MIT license and author attribution are preserved.
 
-# Otterly
+Install the CLI and desktop app using [work-ontology](https://github.com/lpmasser/work-ontology), supplying your own InfoHub repository address. Workspace content and credentials are never included in this software or its release packages. Signed desktop packages are available from [GitHub Releases](https://github.com/lpmasser/infohub-workbench/releases).
 
-Open a folder of Markdown notes and get to work. Otterly gives you a clean editor, quick search, and links between notes. The files stay on your computer.
+Updates download in the background. They apply only when the main window is hidden, no independent document windows remain and there are no unsaved changes. A pending update also offers a restart item in the tray. The existing safe save-and-exit flow runs before installation.
 
-## Download
-
-**[Get the latest Otterly release](https://github.com/ajkdrag/otterly/releases/latest)** for macOS, Windows, or Linux. No account is needed.
-
-| Platform                       | Package to choose                                                  |
-| ------------------------------ | ------------------------------------------------------------------ |
-| macOS (Apple Silicon or Intel) | `.dmg` for your Mac                                                |
-| Windows x64                    | `setup.exe` or `.msi`                                              |
-| Linux x64                      | `.AppImage` or `.deb`                                              |
-| Arch Linux x86_64              | [AUR package](https://aur.archlinux.org/packages/otterly-appimage) |
-
-## See it in action
-
-[Visit the Otterly site](https://ajkdrag.github.io/otterly/) for a short tour of the desktop app and a closer look at its features.
-
-## Why Otterly
-
-Most note apps ask you to choose between polished UX and file ownership.
-
-Otterly is for people who want both:
-
-- a privacy-focused note-taking app
-- a local-first Markdown editor
-- an Obsidian alternative that stays close to plain files
-- a desktop notes app that does not require plugin hunting to feel usable
-
-If you stop using Otterly, your notes are still just Markdown files in a folder you already own.
-
-## Open Markdown Files With Otterly
-
-Otterly can open any `.md` file, not just notes in a vault. The file opens in its own window. Edits save back to the same file, with its line endings kept.
-
-To make Otterly the default app for Markdown:
-
-- **macOS:** Select a `.md` file in Finder, press Cmd+I, pick Otterly under "Open with", and click "Change All".
-- **Windows:** Right-click a `.md` file, choose "Open with" > "Choose another app", pick Otterly, and tick "Always use this app".
-- **Linux:** Right-click a `.md` file in your file manager, open its properties, and set Otterly as the default for "Markdown". From a terminal: `xdg-mime default otterly.desktop text/markdown`. The desktop file name depends on how you installed Otterly.
-
-## Build From Source
-
-### Prerequisites
-
-- [Node.js 20+](https://nodejs.org/)
-- [pnpm](https://pnpm.io/)
-- [Rust toolchain](https://rustup.rs/)
-- Platform-specific build tools from [Tauri prerequisites](https://tauri.app/start/prerequisites/)
-
-### Run
-
-```bash
-pnpm install
-pnpm tauri dev
-```
-
-### Build
-
-```bash
-pnpm tauri build
-```
-
-## Contributing
-
-Otterly uses a ports-and-adapters architecture so the business logic stays testable and the UI remains replaceable.
-
-- Architecture: [docs/architecture.md](./docs/architecture.md)
-- Reusable Markdown editor: [packages/markdown_editor](./packages/markdown_editor/README.md) (CodeMirror 6, no Svelte or Tauri dependency; not published yet)
-- Editor acceptance contract: [docs/markdown_editor_behavior_spec.md](./docs/markdown_editor_behavior_spec.md)
-- Coding guidelines: [devlog/coding_guidelines.md](./devlog/coding_guidelines.md)
-- Validation:
-
-```bash
-pnpm check
-pnpm lint
-pnpm test
-cd src-tauri && cargo check
-pnpm format
-```
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=ajkdrag/otterly&type=date&legend=top-left)](https://www.star-history.com/#ajkdrag/otterly&type=date&legend=top-left)
-
-## License
-
-MIT. See [LICENSE](./LICENSE).
+See [development and release instructions](INFOHUB.md) and [architecture](docs/architecture.md). See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [dependency licenses](licenses/) for attribution and redistribution terms.

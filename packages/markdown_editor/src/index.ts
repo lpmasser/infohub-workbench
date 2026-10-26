@@ -100,7 +100,11 @@ export {
   type CodeBlockOptions,
   type CodeBlockViewState,
 } from "./plugins/code_blocks/index.js";
-export { frontmatter } from "./plugins/frontmatter/index.js";
+export {
+  frontmatter,
+  type FrontmatterOptions,
+  type FrontmatterReference,
+} from "./plugins/frontmatter/index.js";
 export { links, type LinkOptions } from "./plugins/links/index.js";
 export {
   images,

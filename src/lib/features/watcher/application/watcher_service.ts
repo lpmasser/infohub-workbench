@@ -5,30 +5,31 @@ import { create_logger } from "$lib/shared/utils/logger";
 
 const log = create_logger("watcher_service");
 
-const SUPPRESS_WINDOW_MS = 2000;
-
-function suppressed_path_key(path: string): string {
-  return path.toLowerCase();
-}
-
 export class WatcherService {
   private unsubscribe: (() => void) | null = null;
-  private suppressed = new Map<string, ReturnType<typeof setTimeout>>();
 
-  constructor(private readonly port: WatcherPort) {}
+  constructor(
+    private readonly port: WatcherPort,
+    private readonly synchronize_index: (vault_id: VaultId) => Promise<void>,
+  ) {}
 
-  suppress_next(path: string): void {
-    const key = suppressed_path_key(path);
-    const existing = this.suppressed.get(key);
-    if (existing !== undefined) clearTimeout(existing);
-    this.suppressed.set(
-      key,
-      setTimeout(() => this.suppressed.delete(key), SUPPRESS_WINDOW_MS),
-    );
-  }
+  private pending_indexes = new Set<VaultId>();
+  private running_indexes = new Set<VaultId>();
 
-  is_suppressed(path: string): boolean {
-    return this.suppressed.has(suppressed_path_key(path));
+  // A change arriving during a scan must cause another pass, not be dropped.
+  async refresh_index(vault_id: VaultId): Promise<void> {
+    this.pending_indexes.add(vault_id);
+    if (this.running_indexes.has(vault_id)) return;
+    this.running_indexes.add(vault_id);
+    try {
+      while (this.pending_indexes.delete(vault_id)) {
+        await this.synchronize_index(vault_id);
+      }
+    } catch (error) {
+      log.from_error("External change index refresh failed", error);
+    } finally {
+      this.running_indexes.delete(vault_id);
+    }
   }
 
   async start(vault_id: VaultId): Promise<void> {

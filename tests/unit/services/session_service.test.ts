@@ -472,3 +472,36 @@ describe("SessionService", () => {
     });
   });
 });
+
+it("required exit persistence rejects a snapshot that changes while disk IO is pending", async () => {
+  const { service, session_port, tab_store, editor_store, editor_service } =
+    create_setup();
+  const note = create_test_note("draft", "Draft");
+  tab_store.open_tab(note.path, note.title);
+  tab_store.set_dirty(note.path, true);
+  editor_store.set_open_note({
+    ...create_open_note_state(note, "before"),
+    is_dirty: true,
+  });
+  let markdown = as_markdown_text("before");
+  editor_service.flush.mockImplementation(() => ({
+    note_id: note.id,
+    markdown,
+  }));
+  let finish = () => {};
+  session_port.save_latest_session.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const saving = service.save_latest_session({ required: true });
+  const rejected = expect(saving).rejects.toThrow("会话在保存期间发生变化");
+  markdown = as_markdown_text("typed while saving");
+  finish();
+  await rejected;
+  expect(editor_store.open_note?.markdown).toBe("typed while saving");
+  await expect(
+    service.save_latest_session({ required: true }),
+  ).resolves.toBeUndefined();
+});

@@ -1,3 +1,7 @@
+# InfoHub 工程入口
+
+Maintainers use InfoHub for project context. Its location is recorded in `~/.config/infohub/config.json` (under the user profile on Windows). Run `infohub brief ontology-doc`, then read the workbench implementation notes and applicable standards. If the workspace is unavailable, ask the maintainer for relevant context; no private server address is assumed. Use GitHub for source, checks and releases.
+
 For adding/updating any feature, always refer to the decision tree in the docs/architecture.md file FIRST and adhere to it RELIGIOUSLY.
 
 ## Post edit tasks
@@ -9,13 +13,11 @@ For adding/updating any feature, always refer to the decision tree in the docs/a
   - `pnpm test` — Vitest unit/integration tests
   - `cd src-tauri && cargo check` — Rust type checking (run from `src-tauri/` directory)
   - `pnpm format` — Prettier (writes formatting)
-- Add tests in the right location (if we should), even if the user might have forgotten to ask you to create them
 
 ## Project-specific guidelines
 
 - Prefer snake case for file names
 - Don't assume library usage; review before using
-- Use `gh` CLI for GitHub interaction
 - For UI, always use shadcn semantic utilities. Use custom utilities only when shadcn lacks the specific token
 
 ## Web automation

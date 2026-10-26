@@ -93,7 +93,6 @@ export class NoteService {
     private readonly editor_service: EditorService,
     private readonly now_ms: () => number,
     private readonly link_repair: LinkRepairService | null = null,
-    private readonly on_file_written?: (path: string) => void,
   ) {}
 
   clear_open_note() {
@@ -257,6 +256,38 @@ export class NoteService {
     }
   }
 
+  invalidate_external_buffer(note_path: NotePath): void {
+    this.editor_service.close_buffer(note_path);
+  }
+
+  async refresh_external_note(note_path: NotePath): Promise<boolean> {
+    const vault_id = this.get_active_vault_id();
+    const before = this.editor_store.open_note;
+    if (!vault_id || before?.meta.path !== note_path) return false;
+    try {
+      const doc = await this.notes_port.read_note(vault_id, note_path);
+      const current = this.editor_store.open_note;
+      if (
+        this.get_active_vault_id() !== vault_id ||
+        current?.buffer_id !== before.buffer_id
+      )
+        return false;
+      // Ignore our own save notification, but never suppress a time window in
+      // which an agent could also write. Check dirty state after the read.
+      if (current.meta.mtime_ms === doc.meta.mtime_ms) return false;
+      if (current.is_dirty || this.editor_service.is_dirty()) return true;
+      this.apply_opened_note(doc, { force_reload: true });
+      return false;
+    } catch (error) {
+      this.fail_operation(
+        "note.external_refresh",
+        "External reload failed",
+        error,
+      );
+      return false;
+    }
+  }
+
   async open_wiki_link(note_path: string): Promise<NoteOpenResult> {
     return this.open_note(note_path, true);
   }
@@ -358,7 +389,6 @@ export class NoteService {
     this.start_operation("note.delete");
 
     try {
-      this.on_file_written?.(note.id);
       await this.notes_port.delete_note(vault_id, note.id);
       await this.index_port.remove_note(vault_id, note.id);
 
@@ -724,7 +754,6 @@ export class NoteService {
           );
         }
         const note = plan.open_note;
-        this.on_file_written?.(note.meta.id);
         // Queued saves inherit our preceding write, never a fresh disk mtime.
         const saved_mtime_ms = await this.notes_port.write_note(
           vault_id,
@@ -794,7 +823,6 @@ export class NoteService {
     overwrite: boolean,
   ): Promise<SaveExecutionResult> {
     try {
-      this.on_file_written?.(target_path);
       const created_meta = await this.notes_port.create_note(
         vault_id,
         target_path,
@@ -815,7 +843,6 @@ export class NoteService {
       }
     }
 
-    this.on_file_written?.(target_path);
     const new_mtime = await this.notes_port.write_note(
       vault_id,
       target_path,
@@ -833,7 +860,6 @@ export class NoteService {
   async write_note_content(note_path: NotePath, markdown: MarkdownText) {
     const vault = this.vault_store.vault;
     if (!vault) return;
-    this.on_file_written?.(note_path);
     return await this.notes_port.write_note(vault.id, note_path, markdown);
   }
 

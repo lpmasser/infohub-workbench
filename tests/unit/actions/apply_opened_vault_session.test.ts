@@ -71,10 +71,14 @@ describe("apply_opened_vault_session", () => {
 
     const services = {
       session: {
-        load_latest_session: vi.fn().mockResolvedValue(session),
+        load_latest_session: vi.fn().mockImplementation(() => {
+          expect(stores.ui.change_vault.is_loading).toBe(true);
+          return Promise.resolve(session);
+        }),
         restore_latest_session: vi
           .fn()
           .mockImplementation((value: VaultSession) => {
+            expect(stores.ui.change_vault.is_loading).toBe(true);
             stores.tab.restore_tabs(
               value.tabs.map((entry) => ({
                 id: entry.note_path,
@@ -131,6 +135,7 @@ describe("apply_opened_vault_session", () => {
       stores.ui.editor_settings,
     );
 
+    expect(stores.ui.change_vault.is_loading).toBe(false);
     expect(stores.editor.open_note).toEqual(open_note);
     expect(services.editor.open_buffer).toHaveBeenCalledWith(
       open_note,

@@ -12,13 +12,25 @@ import { create_test_clipboard_adapter } from "./test_clipboard_adapter";
 import { create_test_shell_adapter } from "./test_shell_adapter";
 import { create_test_git_adapter } from "./test_git_adapter";
 import { create_test_watcher_adapter } from "./test_watcher_adapter";
-import { create_test_updater_adapter } from "./test_updater_adapter";
 
 export function create_test_ports(): Ports {
   const assets = create_test_assets_adapter();
   const clipboard = create_test_clipboard_adapter();
 
   return {
+    infohub: {
+      overview: () =>
+        Promise.resolve({
+          version: 3,
+          references: {},
+          needsAction: [],
+          deliveryWindowDays: 14,
+          issues: [],
+          projects: [],
+        }),
+      sync_status: () =>
+        Promise.resolve({ version: 1, running: false, pending: {} }),
+    },
     vault: create_test_vault_adapter(),
     notes: create_test_notes_adapter(),
     index: create_test_workspace_index_adapter(),
@@ -36,6 +48,5 @@ export function create_test_ports(): Ports {
     shell: create_test_shell_adapter(),
     git: create_test_git_adapter(),
     watcher: create_test_watcher_adapter(),
-    updater: create_test_updater_adapter(),
   };
 }

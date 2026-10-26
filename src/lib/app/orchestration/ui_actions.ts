@@ -4,13 +4,14 @@ import { reveal_in_file_manager_label } from "$lib/shared/utils/file_manager_lab
 import { is_program_file } from "$lib/features/shell";
 import { toast } from "svelte-sonner";
 
-type SidebarView = "explorer" | "dashboard" | "starred";
+import type { SidebarView } from "$lib/app/orchestration/ui_store.svelte";
 
 export function register_ui_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
 
   function parse_sidebar_view(input_view: unknown): SidebarView {
     const value = String(input_view).trim();
+    if (value === "overview") return "overview";
     if (value === "starred") {
       return "starred";
     }

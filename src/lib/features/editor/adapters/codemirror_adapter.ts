@@ -33,6 +33,7 @@ import {
   links,
   read_code_block_view_states,
   refresh_code_diagrams,
+  refresh_blocks,
   set_editor_mode,
   set_code_block_view_states as code_block_view_states_effect,
   slash_menu,
@@ -125,7 +126,7 @@ export function create_codemirror_editor_port(
       const old_min_height = root.style.minHeight;
       root.style.height = "100%";
       root.style.minHeight = "0";
-      const open_link = (target: string) => {
+      const open_link = (target: string, kind?: "wiki") => {
         if (is_external_url(target)) {
           events.on_external_link_click?.(target);
           return;
@@ -136,12 +137,29 @@ export function create_codemirror_editor_port(
           events.on_file_link_click?.(
             resolve_relative_asset_path(current.note_path, link.path),
           );
-        else events.on_internal_link_click?.(link.path, current.note_path);
+        else {
+          const path = !link.path
+            ? `/${current.note_path}`
+            : kind === "wiki" ||
+                link.path.startsWith("/") ||
+                link.path.startsWith(".")
+              ? link.path
+              : `./${link.path}`;
+          events.on_internal_link_click?.(
+            path,
+            current.note_path,
+            link.fragment,
+          );
+        }
       };
       const plugins: MarkdownPlugin[] = [
         commonmark(),
         gfm(),
-        frontmatter(),
+        frontmatter({
+          resolve_id: (id, field) =>
+            config.resolve_frontmatter_reference?.(id, field),
+          open_reference: (path) => events.on_reference_click?.(path),
+        }),
         callouts(),
         code_blocks({
           languages: code_languages,
@@ -314,6 +332,54 @@ export function create_codemirror_editor_port(
           set_selection(anchor, head);
           focus_editor();
         },
+        refresh_frontmatter() {
+          for (const buffer of buffers.values()) {
+            if (!buffer.is_markdown) continue;
+            const effects = refresh_blocks.of(null);
+            if (buffer === current) view.dispatch({ effects });
+            else buffer.state = buffer.state.update({ effects }).state;
+          }
+        },
+        reveal_heading(fragment) {
+          let wanted = fragment;
+          try {
+            wanted = decodeURIComponent(fragment);
+          } catch {
+            /* Keep literal malformed escapes. */
+          }
+          ensureSyntaxTree(view.state, view.state.doc.length, 200);
+          const slugs = new Map<string, number>();
+          let offset: number | null = null;
+          syntaxTree(view.state).iterate({
+            enter(node) {
+              if (!/^(ATXHeading|SetextHeading)/.test(node.name)) return;
+              const text = view.state
+                .sliceDoc(node.from, node.to)
+                .replace(/^#{1,6}\s+/, "")
+                .replace(/\n[=-]+\s*$/, "")
+                .replace(/\s+#+\s*$/, "")
+                .replace(/!?\[([^\]]+)\]\([^)]*\)/g, "$1")
+                .replace(/[`*_~]/g, "")
+                .trim();
+              const slug = text
+                .toLowerCase()
+                .replace(/[^\p{L}\p{N}\s_-]/gu, "")
+                .replace(/\s/g, "-");
+              const count = slugs.get(slug) ?? 0;
+              slugs.set(slug, count + 1);
+              const id = count ? `${slug}-${String(count)}` : slug;
+              if (offset === null && (id === wanted || text === wanted))
+                offset = node.from;
+            },
+          });
+          if (offset !== null) {
+            view.dispatch({
+              selection: EditorSelection.single(offset),
+              effects: EditorView.scrollIntoView(offset, { y: "start" }),
+            });
+            focus_editor();
+          }
+        },
         restore_cursor,
         get_scroll_top: () => view.scrollDOM.scrollTop,
         set_scroll_top(value) {
@@ -395,7 +461,7 @@ export function create_codemirror_editor_port(
         initial_markdown: string;
       }): BufferEntry {
         const is_markdown = is_markdown_path(input.note_path);
-        const state = is_markdown
+        let state = is_markdown
           ? create_markdown_state(input.initial_markdown, {
               plugins,
               extensions,
@@ -406,6 +472,13 @@ export function create_codemirror_editor_port(
               text_language.of([]),
               syntaxHighlighting(code_block_highlight),
             ]);
+        // A new note opens at its body so metadata is initially previewed.
+        // Explicit saved cursor restoration still takes precedence afterward.
+        const header = is_markdown
+          ? syntaxTree(state).topNode.firstChild
+          : null;
+        if (header?.name === "Frontmatter" && header.to < state.doc.length)
+          state = state.update({ selection: { anchor: header.to + 1 } }).state;
         const entry: BufferEntry = {
           note_path: input.note_path,
           vault_id: input.vault_id,
@@ -638,6 +711,7 @@ function buffer_key(vault_id: VaultId | null, note_path: string): string {
 }
 
 function decode_asset_path(source: string): string {
+  source = source.split(/[?#]/, 1)[0] ?? source;
   try {
     return decodeURIComponent(source);
   } catch {

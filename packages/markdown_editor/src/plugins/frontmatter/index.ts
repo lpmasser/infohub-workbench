@@ -1,19 +1,40 @@
 import type { Input } from "@lezer/common";
 import type { BlockContext, MarkdownConfig } from "@lezer/markdown";
+import {
+  FrontmatterWidget,
+  property_rows,
+  type FrontmatterOptions,
+} from "./widget.js";
+export type { FrontmatterOptions, FrontmatterReference } from "./widget.js";
 import type { MarkdownPlugin } from "../../core/plugin.js";
 
 // YAML frontmatter: a "---" line at the very top, up to a closing "---" or
-// "..." line. It stays literal source. An unclosed opening line is ordinary
+// "..." line. Its content stays literal for Markdown commands. An unclosed opening line is ordinary
 // Markdown (a rule), so a metadata block being typed does not swallow the
 // note below it.
-export function frontmatter(): MarkdownPlugin {
+export function frontmatter(options: FrontmatterOptions = {}): MarkdownPlugin {
   return {
     name: "frontmatter",
     syntax: frontmatter_syntax,
     constructs: [
       {
-        kind: "line",
+        kind: "block",
         name: "frontmatter",
+        nodes: ["Frontmatter"],
+        literal: true,
+        reveal: "caret",
+        complete: (block) => property_rows(block.source, options) !== null,
+        widget: (block, state) =>
+          new FrontmatterWidget(
+            block,
+            state.readOnly,
+            property_rows(block.source, options) ?? [],
+            options,
+          ),
+      },
+      {
+        kind: "line",
+        name: "frontmatter_source",
         nodes: ["Frontmatter"],
         literal: true,
         decorate(node, render) {
@@ -22,6 +43,47 @@ export function frontmatter(): MarkdownPlugin {
       },
     ],
     theme: {
+      ".md-frontmatter-table": {
+        width: "100%",
+        borderCollapse: "collapse",
+        fontSize: "0.85em",
+        margin: "0.5em 0 1em",
+        tableLayout: "fixed",
+      },
+      ".md-frontmatter-table th, .md-frontmatter-table td": {
+        borderBottom: "1px solid var(--border, #ddd)",
+        padding: "0.35em 0.6em",
+        textAlign: "left",
+        verticalAlign: "top",
+        overflowWrap: "anywhere",
+      },
+      ".md-frontmatter-table th": {
+        width: "28%",
+        color: "var(--muted-foreground, #666)",
+        fontWeight: "normal",
+      },
+      ".md-frontmatter-value": { whiteSpace: "pre-wrap" },
+      ".md-frontmatter-tag": {
+        display: "inline-block",
+        padding: "0.05em 0.45em",
+        margin: "0.1em 0.3em 0.1em 0",
+        borderRadius: "0.3em",
+        backgroundColor: "var(--muted, #f2f2f2)",
+        maxWidth: "100%",
+        whiteSpace: "pre-wrap",
+      },
+      ".md-frontmatter-reference": {
+        color: "var(--primary, #285da8)",
+        cursor: "pointer",
+        font: "inherit",
+        textAlign: "left",
+        border: "none",
+      },
+      ".md-frontmatter-reference.md-frontmatter-value": {
+        background: "transparent",
+        padding: "0",
+      },
+      ".md-frontmatter-reference:hover": { textDecoration: "underline" },
       ".md-frontmatter": {
         fontFamily: "var(--font-mono, monospace)",
         backgroundColor: "var(--muted, #f2f2f2)",

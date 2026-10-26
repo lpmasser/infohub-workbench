@@ -68,10 +68,11 @@ type BlockFieldValue = {
 export const block_field = StateField.define<BlockFieldValue>({
   create(state) {
     const blocks = find_blocks(state, []);
+    const constructing = caret_block_from(state, blocks);
     return {
       blocks,
-      decorations: build_decorations(state, blocks, null),
-      constructing: null,
+      decorations: build_decorations(state, blocks, constructing),
+      constructing,
     };
   },
   update(value, transaction) {
@@ -472,6 +473,23 @@ function map_blocks(
   });
 }
 
+function caret_block_from(
+  state: EditorState,
+  blocks: readonly Block[],
+): number | null {
+  const selection = state.selection.main;
+  if (!selection.empty || state.field(reveal_freeze, false)?.frozen)
+    return null;
+  return (
+    blocks.find(
+      (block) =>
+        block.construct.reveal === "caret" &&
+        selection.head >= block.from &&
+        selection.head <= block.to,
+    )?.from ?? null
+  );
+}
+
 function next_constructing(
   value: BlockFieldValue,
   blocks: readonly Block[],
@@ -491,6 +509,10 @@ function next_constructing(
       constructing = null;
     return constructing;
   }
+  // Entering a caret-revealed block starts a source edit, just like clicking
+  // its widget. Keep source visible while the user selects text inside it.
+  const entered = caret_block_from(transaction.state, blocks);
+  if (entered !== null) return entered;
   // Only typing constructs a block. A command that inserts a whole block,
   // such as a slash command, wants the finished widget right away.
   if (

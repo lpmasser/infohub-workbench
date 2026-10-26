@@ -107,7 +107,7 @@ fn parse_internal_markdown_target(raw_href: &str) -> Option<String> {
         return None;
     }
 
-    let mut href = decode_percent_sequences(trimmed);
+    let mut href = trimmed.to_string();
     if let Some(hash) = href.find('#') {
         href.truncate(hash);
     }
@@ -115,7 +115,8 @@ fn parse_internal_markdown_target(raw_href: &str) -> Option<String> {
         href.truncate(query);
     }
 
-    let href = href.trim();
+    let decoded = decode_percent_sequences(href.trim());
+    let href = decoded.as_str();
     if href.is_empty() || !href.to_ascii_lowercase().ends_with(".md") {
         return None;
     }
@@ -128,7 +129,7 @@ fn parse_asset_href(raw_href: &str) -> Option<String> {
         return None;
     }
 
-    let mut href = decode_percent_sequences(trimmed);
+    let mut href = trimmed.to_string();
     if let Some(hash) = href.find('#') {
         href.truncate(hash);
     }
@@ -136,24 +137,30 @@ fn parse_asset_href(raw_href: &str) -> Option<String> {
         href.truncate(query);
     }
 
-    let href = href.trim().to_string();
+    let href = decode_percent_sequences(href.trim());
     if href.is_empty() {
         return None;
     }
     Some(href)
 }
 
-fn resolve_asset_target(source_path: &str, raw_href: &str) -> Option<String> {
-    let cleaned = raw_href.trim_start_matches('/');
-    if cleaned.is_empty() {
-        return None;
-    }
-    if is_note_relative_target(cleaned) {
-        let base_dir = source_dir_from_path(source_path);
-        resolve_relative_path(base_dir, cleaned)
+pub(crate) fn resolve_markdown_target(source_path: &str, raw_href: &str) -> Option<String> {
+    let base_dir = if raw_href.starts_with('/') {
+        ""
     } else {
-        Some(cleaned.to_string())
-    }
+        source_dir_from_path(source_path)
+    };
+    resolve_relative_path(base_dir, raw_href.trim_start_matches('/'))
+}
+
+fn href_suffix(href: &str) -> &str {
+    href.find(['?', '#']).map(|i| &href[i..]).unwrap_or("")
+}
+
+fn encode_markdown_path(path: &str) -> String {
+    path.replace('%', "%25")
+        .replace('#', "%23")
+        .replace('?', "%3F")
 }
 
 fn markdown_destination_needs_angle_brackets(value: &str) -> bool {
@@ -250,7 +257,7 @@ fn is_embedded_wikilink(node: &AstNode<'_>) -> bool {
 
 fn parse_link_node(link: &NodeLink, source_path: &str) -> Option<String> {
     let parsed = parse_internal_markdown_target(&link.url)?;
-    resolve_wiki_target(source_path, &parsed)
+    resolve_markdown_target(source_path, &parsed)
 }
 
 fn parse_wikilink_node(link: &NodeWikiLink, source_path: &str) -> Option<String> {
@@ -527,21 +534,21 @@ pub(crate) fn rewrite_links(
                         Some(p) => p,
                         None => continue,
                     };
-                    let resolved = match resolve_asset_target(old_source_path, &parsed) {
+                    let resolved = match resolve_markdown_target(old_source_path, &parsed) {
                         Some(r) => r,
                         None => continue,
                     };
-                    (parsed, resolved, true)
+                    (parsed.clone(), resolved, !parsed.starts_with('/'))
                 } else {
                     let parsed = match parse_internal_markdown_target(&url) {
                         Some(p) => p,
                         None => continue,
                     };
-                    let resolved = match resolve_wiki_target(old_source_path, &parsed) {
+                    let resolved = match resolve_markdown_target(old_source_path, &parsed) {
                         Some(r) => r,
                         None => continue,
                     };
-                    let is_rel = is_note_relative_target(&parsed);
+                    let is_rel = !parsed.starts_with('/');
                     (parsed, resolved, is_rel)
                 };
                 let is_relative = is_relative_flag;
@@ -559,8 +566,9 @@ pub(crate) fn rewrite_links(
                 let new_href = if is_relative {
                     format_markdown_link_href(new_source_path, &new_target)
                 } else {
-                    new_target.clone()
+                    format!("/{new_target}")
                 };
+                let new_href = format!("{}{}", encode_markdown_path(&new_href), href_suffix(&url));
                 let (byte_start, byte_end) = match sourcepos_to_byte_range(&line_starts, sourcepos)
                 {
                     Some(range) => range,
@@ -581,21 +589,26 @@ pub(crate) fn rewrite_links(
                 let label = &span[expected_prefix.len()..split];
                 let raw_destination = &span[split + 2..span.len() - 1];
                 let trimmed_destination = raw_destination.trim();
-                let had_angle_wrapping = trimmed_destination.starts_with('<')
-                    && trimmed_destination.ends_with('>')
-                    && trimmed_destination.len() >= 2;
-
+                let had_angle_wrapping = trimmed_destination.starts_with('<');
+                let destination_end = if had_angle_wrapping {
+                    trimmed_destination
+                        .find('>')
+                        .map(|i| i + 1)
+                        .unwrap_or(trimmed_destination.len())
+                } else {
+                    trimmed_destination
+                        .find(char::is_whitespace)
+                        .unwrap_or(trimmed_destination.len())
+                };
+                let title_suffix = &trimmed_destination[destination_end..];
                 let replacement_destination =
                     if had_angle_wrapping || markdown_destination_needs_angle_brackets(&new_href) {
                         format!("<{new_href}>")
                     } else {
                         new_href.clone()
                     };
-                let replacement = if is_image {
-                    format!("![{label}]({replacement_destination})")
-                } else {
-                    format!("[{label}]({replacement_destination})")
-                };
+                let replacement =
+                    format!("{expected_prefix}{label}]({replacement_destination}{title_suffix})");
                 if replacement != span {
                     replacements.push((byte_start, byte_end, replacement));
                 }
@@ -619,7 +632,11 @@ pub(crate) fn rewrite_links(
                     continue;
                 };
 
-                let new_wiki = format_wiki_target(new_source_path, &new_target, is_relative);
+                let new_wiki = format!(
+                    "{}{}",
+                    format_wiki_target(new_source_path, &new_target, is_relative),
+                    href_suffix(&url)
+                );
                 let (byte_start, byte_end) = match sourcepos_to_byte_range(&line_starts, sourcepos)
                 {
                     Some(range) => range,
@@ -764,13 +781,11 @@ mod tests {
     }
 
     #[test]
-    fn bare_image_link_treated_as_vault_root_relative_when_note_moves() {
-        // Bare image link (no ./ prefix) is treated as vault-root-relative
-        // Note moves from docs/note.md to archive/note.md
-        // img.png resolves to vault-root img.png, rewritten as ../img.png from archive/
+    fn bare_image_link_is_note_relative_when_note_moves() {
+        // Bare image paths follow the same relative rule as Markdown links.
         let md = "![alt](img.png)";
         let result = rewrite(md, "docs/note.md", "archive/note.md");
         assert!(result.changed);
-        assert_eq!(result.markdown, "![alt](../img.png)");
+        assert_eq!(result.markdown, "![alt](../docs/img.png)");
     }
 }

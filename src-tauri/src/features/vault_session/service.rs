@@ -1,4 +1,3 @@
-use crate::shared::constants;
 use crate::shared::storage::vault_path;
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -9,7 +8,7 @@ const LATEST_SESSION_FILE: &str = "latest.json";
 
 fn latest_session_path(app: &AppHandle, vault_id: &str) -> Result<PathBuf, String> {
     let vault_root = vault_path(app, vault_id)?;
-    let sessions_dir = vault_root.join(constants::APP_DIR).join(SESSIONS_DIR);
+    let sessions_dir = crate::shared::storage::vault_state_dir(&vault_root).join(SESSIONS_DIR);
     std::fs::create_dir_all(&sessions_dir).map_err(|e| e.to_string())?;
     Ok(sessions_dir.join(LATEST_SESSION_FILE))
 }

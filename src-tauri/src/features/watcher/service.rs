@@ -20,18 +20,9 @@ struct WatcherRuntime {
 #[derive(Debug, Serialize, Clone)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum VaultFsEvent {
-    NoteChangedExternally {
-        vault_id: String,
-        note_path: String,
-    },
-    NoteAdded {
-        vault_id: String,
-        note_path: String,
-    },
-    NoteRemoved {
-        vault_id: String,
-        note_path: String,
-    },
+    NoteChangedExternally { vault_id: String, note_path: String },
+    NoteAdded { vault_id: String, note_path: String },
+    NoteRemoved { vault_id: String, note_path: String },
 }
 
 fn rel_path(root: &Path, abs: &Path) -> Option<String> {
@@ -173,7 +164,23 @@ pub fn watch_vault(
                     continue;
                 }
 
-                if let Some(vault_event) = classify_event(kind, &vault_id_clone, rel) {
+                let reconciled_kind = if matches!(
+                    kind,
+                    EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_)
+                ) {
+                    if !abs.exists() {
+                        EventKind::Remove(notify::event::RemoveKind::Any)
+                    } else if matches!(kind, EventKind::Remove(_)) {
+                        EventKind::Modify(notify::event::ModifyKind::Any)
+                    } else {
+                        *kind
+                    }
+                } else {
+                    *kind
+                };
+                if let Some(vault_event) = classify_event(&reconciled_kind, &vault_id_clone, rel) {
+                    crate::features::notes::service::invalidate_vault_folder_cache(&vault_id_clone);
+                    log::info!("External filesystem event: {:?}", vault_event);
                     emit(&app_handle, vault_event);
                 }
             }

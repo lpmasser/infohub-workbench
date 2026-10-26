@@ -79,7 +79,6 @@ export class LegacyMarkdownCleanupService {
     private readonly editor_service: EditorService,
     private readonly notes_store: NotesStore,
     private readonly now_ms: () => number = Date.now,
-    private readonly suppress_file_write: (path: string) => void = () => {},
     private readonly reload_active_note: (
       path: string,
     ) => Promise<void> = async () => {},
@@ -156,7 +155,6 @@ export class LegacyMarkdownCleanupService {
     );
     if (changes.length !== snapshot.changes.length)
       throw new Error("A note in this preview is now unsaved. Preview again.");
-    for (const change of changes) this.suppress_file_write(change.note_id);
     const result = await this.notes_port.apply_markdown_cleanup(
       vault.id,
       changes.map(({ line_map: _line_map, ...change }) => change),
@@ -185,9 +183,6 @@ export class LegacyMarkdownCleanupService {
     if (!vault) throw new Error("Open a vault before restoring cleanup.");
     this.editor_service.flush();
     const dirty_paths = this.dirty_open_paths();
-    const notes_to_restore = await this.notes_port.list_notes(vault.id);
-    this.assert_vault(vault.id);
-    for (const note of notes_to_restore) this.suppress_file_write(note.path);
     const result = await this.notes_port.restore_latest_markdown_cleanup(
       vault.id,
       [...dirty_paths] as NoteId[],
@@ -195,7 +190,6 @@ export class LegacyMarkdownCleanupService {
     this.assert_vault(vault.id);
     if (!result) return null;
     for (const note of result.restored_notes) {
-      this.suppress_file_write(note.path);
       try {
         await this.index_port.upsert_note(vault.id, note.id);
       } catch {
