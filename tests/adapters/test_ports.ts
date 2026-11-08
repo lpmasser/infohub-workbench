@@ -28,8 +28,10 @@ export function create_test_ports(): Ports {
           issues: [],
           projects: [],
         }),
-      sync_status: () =>
-        Promise.resolve({ version: 1, running: false, pending: {} }),
+      watch_sync_status: (_vault_id, handlers) => {
+        handlers.on_status({ version: 1, running: false, pending: {} });
+        return () => {};
+      },
     },
     vault: create_test_vault_adapter(),
     notes: create_test_notes_adapter(),

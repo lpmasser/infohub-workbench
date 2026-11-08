@@ -7,6 +7,7 @@ import { VaultStore } from "$lib/features/vault";
 import { UIStore } from "$lib/app";
 import { InfoHubService } from "$lib/features/infohub/application/infohub_service";
 import { InfoHubStore } from "$lib/features/infohub/state/infohub_store.svelte";
+import type { SyncStatusHandlers } from "$lib/features/infohub/ports";
 import { infohub_overview } from "../helpers/infohub_fixtures";
 import { create_test_vault } from "../helpers/test_fixtures";
 
@@ -36,7 +37,7 @@ it("refreshes an open search on index completion without subscribing to the acti
     editor_service: { refresh_frontmatter() {} } as never,
     infohub_service: {
       select() {},
-      refresh_sync: () => Promise.resolve(),
+      watch_sync: () => () => {},
       refresh_overview: () => Promise.resolve(),
     } as never,
     action_registry: {
@@ -68,7 +69,7 @@ it("refreshes an open search on index completion without subscribing to the acti
   }
 });
 
-it("does no overview IO while idle, refreshes when the overview sidebar becomes visible and file-index completion, and keeps polling sync", async () => {
+it("does no overview IO while idle, refreshes when the overview sidebar becomes visible and file-index completion, and keeps following sync", async () => {
   vi.useFakeTimers();
   const search_store = new SearchStore();
   const ui_store = new UIStore();
@@ -77,7 +78,7 @@ it("does no overview IO while idle, refreshes when the overview sidebar becomes 
   ui_store.set_sidebar_view("explorer");
   vault_store.set_vault(create_test_vault());
   let source = "initial";
-  let dirty = "before.md";
+  let report_sync: SyncStatusHandlers["on_status"] = () => {};
   const overview_io: string[] = [];
   const service = new InfoHubService(
     {
@@ -85,8 +86,15 @@ it("does no overview IO while idle, refreshes when the overview sidebar becomes 
         overview_io.push(source);
         return Promise.resolve(infohub_overview(source));
       },
-      sync_status: () =>
-        Promise.resolve({ version: 1, running: true, dirtyFiles: [dirty] }),
+      watch_sync_status: (_vault_id, handlers) => {
+        report_sync = handlers.on_status;
+        handlers.on_status({
+          version: 1,
+          running: true,
+          dirtyFiles: ["before.md"],
+        });
+        return () => {};
+      },
     },
     store,
   );
@@ -107,7 +115,8 @@ it("does no overview IO while idle, refreshes when the overview sidebar becomes 
   }
   try {
     await settle();
-    dirty = "after.md";
+    expect(store.sync?.dirtyFiles).toEqual(["before.md"]);
+    report_sync({ version: 1, running: true, dirtyFiles: ["after.md"] });
     await vi.advanceTimersByTimeAsync(30_000);
     expect(overview_io).toEqual([]);
     expect(store.overview).toBeNull();

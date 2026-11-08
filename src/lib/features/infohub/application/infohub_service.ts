@@ -5,7 +5,6 @@ export class InfoHubService {
   private generation = 0;
   private overview_busy = false;
   private overview_pending = false;
-  private sync_busy = false;
   private vault_id: VaultId | null = null;
   constructor(
     private readonly port: InfoHubPort,
@@ -16,7 +15,6 @@ export class InfoHubService {
     this.vault_id = vault_id;
     this.overview_busy = false;
     this.overview_pending = false;
-    this.sync_busy = false;
     this.store.reset();
   }
   async refresh_overview(): Promise<void> {
@@ -44,21 +42,20 @@ export class InfoHubService {
     this.overview_busy = false;
     this.store.loading = false;
   }
-  async refresh_sync(): Promise<void> {
-    if (this.sync_busy || !this.vault_id) return;
-    this.sync_busy = true;
+  watch_sync(): () => void {
+    if (!this.vault_id) return () => {};
     const generation = this.generation;
-    try {
-      const sync = await this.port.sync_status(this.vault_id);
-      if (generation !== this.generation) return;
-      this.store.sync = sync;
-      this.store.sync_error = null;
-    } catch (error) {
-      if (generation !== this.generation) return;
-      this.store.sync = null;
-      this.store.sync_error = String(error);
-    } finally {
-      if (generation === this.generation) this.sync_busy = false;
-    }
+    return this.port.watch_sync_status(this.vault_id, {
+      on_status: (sync) => {
+        if (generation !== this.generation) return;
+        this.store.sync = sync;
+        this.store.sync_error = null;
+      },
+      on_error: (error) => {
+        if (generation !== this.generation) return;
+        this.store.sync = null;
+        this.store.sync_error = String(error);
+      },
+    });
   }
 }

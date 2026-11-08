@@ -7,16 +7,22 @@
   import ActivityBar from "$lib/app/bootstrap/ui/activity_bar.svelte";
   import { VirtualFileTree } from "$lib/features/folder";
   import { VaultDashboardPanel } from "$lib/features/vault";
-  import { NoteEditor, NoteDetailsDialog } from "$lib/features/note";
+  import {
+    NoteEditor,
+    NoteDetailsDialog,
+    is_draft_note_path,
+  } from "$lib/features/note";
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
   import { EditorStatusBar } from "$lib/features/editor";
   import { ContextRail } from "$lib/features/links";
   import { SvelteSet } from "svelte/reactivity";
+  import { untrack } from "svelte";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree, scope_flat_tree } from "$lib/features/folder";
   import { as_note_path } from "$lib/shared/types/ids";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { is_web_build } from "$lib/app/runtime_target";
   import { ACTION_IDS } from "$lib/app";
   import type { NoteMeta } from "$lib/shared/types/note";
   import {
@@ -27,6 +33,32 @@
   } from "@lucide/svelte";
 
   const { stores, action_registry } = use_app_context();
+
+  // Web sources other than the workspace are read-only: no entry points
+  // that would write. Desktop-only entry points are absent from the web build.
+  const writable = $derived(!stores.vault.vault?.read_only);
+
+  // On a phone the sidebar and the editor take turns filling the screen.
+  const narrow_query = "(max-width: 640px)";
+  let is_narrow = $state(
+    typeof matchMedia === "function" && matchMedia(narrow_query).matches,
+  );
+  $effect(() => {
+    const query = matchMedia(narrow_query);
+    const update = () => (is_narrow = query.matches);
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  });
+  // Opening a note shows it; an empty new note leaves the sidebar up.
+  let shown_note_path: string | null = null;
+  $effect(() => {
+    const path = stores.editor.open_note?.meta.path ?? null;
+    const opened =
+      path !== null && path !== shown_note_path && !is_draft_note_path(path);
+    shown_note_path = path;
+    if (opened && untrack(() => is_narrow && stores.ui.sidebar_open))
+      stores.ui.sidebar_open = false;
+  });
 
   let starred_expanded_node_ids = $state(new SvelteSet<string>());
 
@@ -290,15 +322,20 @@
   };
 
   const explorer_header_actions: HeaderAction[] = [
-    {
-      icon: FolderPlus,
-      label: "New Folder",
-      onclick: () =>
-        void action_registry.execute(
-          ACTION_IDS.folder_request_create,
-          stores.ui.selected_folder_path,
-        ),
-    },
+    // The web API has no empty folders; a new note's path creates folders.
+    ...(is_web_build
+      ? []
+      : [
+          {
+            icon: FolderPlus,
+            label: "New Folder",
+            onclick: () =>
+              void action_registry.execute(
+                ACTION_IDS.folder_request_create,
+                stores.ui.selected_folder_path,
+              ),
+          },
+        ]),
     {
       icon: RefreshCw,
       label: "Refresh",
@@ -409,6 +446,9 @@
         on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}
         on_open_settings={() =>
           void action_registry.execute(ACTION_IDS.settings_open)}
+        on_sign_out={is_web_build
+          ? () => void action_registry.execute(ACTION_IDS.app_sign_out)
+          : undefined}
       />
       <Sidebar.Provider
         open={stores.ui.sidebar_open}
@@ -417,9 +457,9 @@
         <Resizable.PaneGroup direction="horizontal" class="h-full">
           {#if stores.ui.sidebar_open}
             <Resizable.Pane
-              defaultSize={20}
+              defaultSize={is_narrow ? 100 : 20}
               minSize={16}
-              maxSize={40}
+              maxSize={is_narrow ? 100 : 40}
               order={1}
             >
               <Sidebar.Root collapsible="none" class="w-full">
@@ -449,6 +489,11 @@
                       >
                         {stores.vault.vault.name}
                       </button>
+                      {#if !writable}<span
+                          class="SidebarHeader__badge"
+                          title="此来源只读，切换到我的工作区才能编辑"
+                          >只读</span
+                        >{/if}
                     {/if}
                     <div class="SidebarHeader__actions">
                       {#each sidebar_header_actions as action (action.label)}
@@ -541,21 +586,27 @@
                               ACTION_IDS.ui_select_folder,
                               path,
                             )}
-                          on_request_create_note={() =>
-                            void action_registry.execute(
-                              ACTION_IDS.note_create,
-                            )}
-                          on_request_create_folder={(folder_path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.folder_request_create,
-                              folder_path,
-                            )}
+                          on_request_create_note={!writable
+                            ? undefined
+                            : () =>
+                                void action_registry.execute(
+                                  ACTION_IDS.note_create,
+                                )}
+                          on_request_create_folder={is_web_build
+                            ? undefined
+                            : (folder_path: string) =>
+                                void action_registry.execute(
+                                  ACTION_IDS.folder_request_create,
+                                  folder_path,
+                                )}
                           on_toggle_star={toggle_star_for_selection}
-                          on_reveal_in_file_manager={(path: string) =>
-                            void action_registry.execute(
-                              ACTION_IDS.shell_reveal_in_file_manager,
-                              path,
-                            )}
+                          on_reveal_in_file_manager={is_web_build
+                            ? undefined
+                            : (path: string) =>
+                                void action_registry.execute(
+                                  ACTION_IDS.shell_reveal_in_file_manager,
+                                  path,
+                                )}
                           on_open_in_default_app={(path: string) =>
                             void action_registry.execute(
                               ACTION_IDS.shell_open_in_default_app,
@@ -577,6 +628,7 @@
                               path,
                             )}
                           on_move_items={(items, target_folder, overwrite) =>
+                            writable &&
                             void action_registry.execute(
                               ACTION_IDS.filetree_move_items,
                               {
@@ -675,33 +727,47 @@
                             ACTION_IDS.ui_select_folder,
                             path,
                           )}
-                        on_request_delete={(note: NoteMeta) =>
-                          void action_registry.execute(
-                            ACTION_IDS.note_request_delete,
-                            note,
-                          )}
-                        on_request_rename={(note: NoteMeta) =>
-                          void action_registry.execute(
-                            ACTION_IDS.note_request_rename,
-                            note,
-                          )}
-                        on_request_delete_folder={(folder_path: string) =>
-                          void action_registry.execute(
-                            ACTION_IDS.folder_request_delete,
-                            folder_path,
-                          )}
-                        on_request_rename_folder={(folder_path: string) =>
-                          void action_registry.execute(
-                            ACTION_IDS.folder_request_rename,
-                            folder_path,
-                          )}
-                        on_request_create_note={() =>
-                          void action_registry.execute(ACTION_IDS.note_create)}
-                        on_request_create_folder={(folder_path: string) =>
-                          void action_registry.execute(
-                            ACTION_IDS.folder_request_create,
-                            folder_path,
-                          )}
+                        on_request_delete={!writable
+                          ? undefined
+                          : (note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_request_delete,
+                                note,
+                              )}
+                        on_request_rename={!writable
+                          ? undefined
+                          : (note: NoteMeta) =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_request_rename,
+                                note,
+                              )}
+                        on_request_delete_folder={is_web_build
+                          ? undefined
+                          : (folder_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_request_delete,
+                                folder_path,
+                              )}
+                        on_request_rename_folder={is_web_build
+                          ? undefined
+                          : (folder_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_request_rename,
+                                folder_path,
+                              )}
+                        on_request_create_note={!writable
+                          ? undefined
+                          : () =>
+                              void action_registry.execute(
+                                ACTION_IDS.note_create,
+                              )}
+                        on_request_create_folder={is_web_build
+                          ? undefined
+                          : (folder_path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.folder_request_create,
+                                folder_path,
+                              )}
                         scoped_root_path={stores.ui.filetree_scoped_root_path}
                         on_scope_to_folder={(folder_path: string) =>
                           void action_registry.execute(
@@ -713,11 +779,13 @@
                             ACTION_IDS.filetree_clear_scope,
                           )}
                         on_toggle_star={toggle_star_for_selection}
-                        on_reveal_in_file_manager={(path: string) =>
-                          void action_registry.execute(
-                            ACTION_IDS.shell_reveal_in_file_manager,
-                            path,
-                          )}
+                        on_reveal_in_file_manager={is_web_build
+                          ? undefined
+                          : (path: string) =>
+                              void action_registry.execute(
+                                ACTION_IDS.shell_reveal_in_file_manager,
+                                path,
+                              )}
                         on_open_in_default_app={(path: string) =>
                           void action_registry.execute(
                             ACTION_IDS.shell_open_in_default_app,
@@ -739,6 +807,7 @@
                             path,
                           )}
                         on_move_items={(items, target_folder, overwrite) =>
+                          writable &&
                           void action_registry.execute(
                             ACTION_IDS.filetree_move_items,
                             {
@@ -752,7 +821,10 @@
                   </Sidebar.Group>
                 </Sidebar.Content>
 
-                <Sidebar.Footer class="border-t border-sidebar-border">
+                <Sidebar.Footer
+                  class="border-t border-sidebar-border"
+                  hidden={!writable}
+                >
                   <Button
                     class="w-full"
                     onclick={() =>
@@ -766,9 +838,12 @@
                 <Sidebar.Rail />
               </Sidebar.Root>
             </Resizable.Pane>
-            <Resizable.Handle withHandle />
+            {#if !is_narrow}<Resizable.Handle withHandle />{/if}
           {/if}
-          <Resizable.Pane order={2}>
+          <Resizable.Pane
+            order={2}
+            class={is_narrow && stores.ui.sidebar_open ? "hidden" : ""}
+          >
             <Sidebar.Inset class="flex h-full min-h-0 min-w-0 flex-col">
               <TabBar />
               <div class="flex min-h-0 flex-1 flex-col">
@@ -794,7 +869,7 @@
               </div>
             </Sidebar.Inset>
           </Resizable.Pane>
-          {#if stores.ui.context_rail_open}
+          {#if stores.ui.context_rail_open && !is_web_build}
             <Resizable.Handle withHandle />
             <Resizable.Pane
               defaultSize={20}
@@ -873,6 +948,16 @@
     font-weight: 600;
     font-size: var(--text-sm);
     letter-spacing: 0.01em;
+  }
+
+  .SidebarHeader__badge {
+    flex: none;
+    margin-inline-end: auto;
+    padding-inline: var(--space-1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm, 0.25rem);
+    font-size: var(--text-xs);
+    color: var(--muted-foreground);
   }
 
   .SidebarHeader__title--button {

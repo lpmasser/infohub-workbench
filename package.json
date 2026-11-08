@@ -9,7 +9,9 @@
   },
   "scripts": {
     "dev": "vite dev",
+    "dev:web": "VITE_INFOHUB_TARGET=web vite dev",
     "build": "vite build",
+    "build:web": "VITE_INFOHUB_TARGET=web vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "lint": "pnpm lint:layering && oxlint . --type-aware",

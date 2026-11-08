@@ -24,13 +24,7 @@ export function create_workspace_queries_reactor(
     });
     $effect(() => {
       context.infohub_service.select(context.vault_store.vault?.id ?? null);
-      void context.infohub_service.refresh_sync();
-      const timer = setInterval(() => {
-        void context.infohub_service.refresh_sync();
-      }, 5000);
-      return () => {
-        clearInterval(timer);
-      };
+      return untrack(() => context.infohub_service.watch_sync());
     });
     $effect(() => {
       const vault_id = context.vault_store.vault?.id;

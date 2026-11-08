@@ -1,5 +1,6 @@
 export const ACTION_IDS = {
   app_mounted: "app.mounted",
+  app_sign_out: "app.sign_out",
   app_editor_mount: "app.editor.mount",
   app_editor_unmount: "app.editor.unmount",
 

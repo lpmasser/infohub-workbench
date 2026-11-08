@@ -1,6 +1,16 @@
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
+import { is_web_build } from "$lib/app/runtime_target";
 
-export const COMMANDS_REGISTRY: CommandDefinition[] = [
+// Commands whose feature the browser build does not have.
+const DESKTOP_ONLY_COMMANDS = new Set<CommandDefinition["id"]>([
+  "clean_up_legacy_markdown",
+  "git_version_history",
+  "git_create_checkpoint",
+  "git_init_repo",
+  "toggle_links_panel",
+]);
+
+const ALL_COMMANDS: CommandDefinition[] = [
   {
     id: "create_new_note",
     label: "Create new note",
@@ -31,8 +41,10 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
   },
   {
     id: "change_vault",
-    label: "Change vault",
-    description: "Switch to a different vault",
+    label: is_web_build ? "切换来源" : "Change vault",
+    description: is_web_build
+      ? "在我的工作区、main 和草稿之间切换"
+      : "Switch to a different vault",
     keywords: ["switch", "vault", "folder", "workspace", "change", "open"],
     icon: "folder-open",
   },
@@ -164,3 +176,7 @@ export const COMMANDS_REGISTRY: CommandDefinition[] = [
     icon: "link",
   },
 ];
+
+export const COMMANDS_REGISTRY: CommandDefinition[] = is_web_build
+  ? ALL_COMMANDS.filter((command) => !DESKTOP_ONLY_COMMANDS.has(command.id))
+  : ALL_COMMANDS;

@@ -113,7 +113,7 @@
 </script>
 
 <div class="StatusBar">
-  <div class="StatusBar__section">
+  <div class="StatusBar__section StatusBar__section--cursor">
     <span class="StatusBar__item">
       Ln {line ?? "--"}, Col {column ?? "--"}
     </span>
@@ -243,6 +243,13 @@
     border-top: 1px solid var(--border);
     background-color: color-mix(in oklch, var(--muted) 30%, transparent);
     color: var(--muted-foreground);
+  }
+
+  /* Phones keep the source and view controls; the tab shows unsaved state. */
+  @media (max-width: 640px) {
+    .StatusBar__section.StatusBar__section--cursor {
+      display: none;
+    }
   }
 
   .StatusBar__section {

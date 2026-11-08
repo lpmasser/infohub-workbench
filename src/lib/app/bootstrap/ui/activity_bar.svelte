@@ -7,6 +7,7 @@
     Star,
     CircleHelp,
     Search,
+    LogOut,
   } from "@lucide/svelte";
 
   import type { SidebarView } from "$lib/app/orchestration/ui_store.svelte";
@@ -21,6 +22,8 @@
     on_open_commands: () => void;
     on_open_help: () => void;
     on_open_settings: () => void;
+    // Browser build: end the server session.
+    on_sign_out?: (() => void) | undefined;
   };
 
   let {
@@ -33,6 +36,7 @@
     on_open_commands,
     on_open_help,
     on_open_settings,
+    on_sign_out,
   }: Props = $props();
 </script>
 
@@ -119,6 +123,17 @@
     >
       <Settings class="ActivityBar__icon" />
     </button>
+    {#if on_sign_out}
+      <button
+        type="button"
+        class="ActivityBar__button"
+        onclick={on_sign_out}
+        aria-label="退出登录"
+        title="退出登录"
+      >
+        <LogOut class="ActivityBar__icon" />
+      </button>
+    {/if}
   </div>
 </nav>
 

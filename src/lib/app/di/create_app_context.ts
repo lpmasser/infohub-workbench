@@ -23,6 +23,7 @@ import { ThemeService } from "$lib/features/theme";
 import { LinkRepairService, LinksService } from "$lib/features/links";
 import { WatcherService } from "$lib/features/watcher";
 import { mount_reactors } from "$lib/reactors";
+import { is_web_build } from "$lib/app/runtime_target";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -30,6 +31,8 @@ export function create_app_context(input: {
   ports: Ports;
   now_ms?: () => number;
   default_mount_config: AppMountConfig;
+  // Browser build only: ends the server session.
+  sign_out?: () => Promise<void>;
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const stores = create_app_stores();
@@ -122,7 +125,8 @@ export function create_app_context(input: {
     stores.op,
     editor_service,
     now_ms,
-    link_repair_service,
+    // The web page has no link index to find and rewrite references with.
+    is_web_build ? null : link_repair_service,
   );
 
   const markdown_cleanup_service = new LegacyMarkdownCleanupService(
@@ -148,7 +152,7 @@ export function create_app_context(input: {
     stores.tab,
     stores.op,
     now_ms,
-    link_repair_service,
+    is_web_build ? null : link_repair_service,
   );
 
   const shell_service = new ShellService(input.ports.shell, stores.vault);
@@ -242,6 +246,17 @@ export function create_app_context(input: {
     },
     default_mount_config: input.default_mount_config,
   });
+
+  const sign_out = input.sign_out;
+  if (sign_out)
+    action_registry.register({
+      id: ACTION_IDS.app_sign_out,
+      label: "退出登录",
+      execute: async () => {
+        await session_service.save_latest_session();
+        await sign_out();
+      },
+    });
 
   const is_loading = () =>
     stores.ui.startup.status === "loading" ||

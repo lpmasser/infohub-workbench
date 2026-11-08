@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { is_web_build } from "$lib/app/runtime_target";
   import * as ContextMenu from "$lib/components/ui/context-menu";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
   import {
@@ -397,7 +398,7 @@
       </button>
     {/if}
 
-    <div class="TabBar__actions">
+    <div class="TabBar__actions" hidden={is_web_build}>
       <button
         type="button"
         class="TabBar__action-btn"

@@ -25,6 +25,8 @@ export type {
   WriteImageAssetInput,
 } from "$lib/features/note/ports";
 export { create_notes_tauri_adapter } from "$lib/features/note/adapters/notes_tauri_adapter";
+export { create_notes_web_adapter } from "$lib/features/note/adapters/notes_web_adapter";
+export { create_assets_web_adapter } from "$lib/features/note/adapters/assets_web_adapter";
 export { create_assets_tauri_adapter } from "$lib/features/note/adapters/assets_tauri_adapter";
 export { default as NoteEditor } from "$lib/features/note/ui/note_editor.svelte";
 export { default as NoteDetailsDialog } from "$lib/features/note/ui/note_details_dialog.svelte";
