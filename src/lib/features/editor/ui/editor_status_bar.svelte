@@ -231,10 +231,6 @@
     color: var(--primary);
   }
 
-  .StatusBar__item--repairing {
-    color: var(--primary);
-  }
-
   .StatusBar__item--failed {
     color: var(--destructive);
   }

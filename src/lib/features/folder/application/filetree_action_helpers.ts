@@ -133,68 +133,6 @@ export function transform_filetree_paths(
   };
 }
 
-export function remap_path(
-  path: string,
-  old_path: string,
-  new_path: string,
-): string {
-  if (path === old_path) {
-    return new_path;
-  }
-
-  const old_prefix = `${old_path}/`;
-  if (path.startsWith(old_prefix)) {
-    return `${new_path}/${path.slice(old_prefix.length)}`;
-  }
-
-  return path;
-}
-
-export function remap_expanded_paths(
-  input: ActionRegistrationInput,
-  old_path: string,
-  new_path: string,
-) {
-  transform_filetree_paths(input, (path) =>
-    remap_path(path, old_path, new_path),
-  );
-}
-
-export function remap_ui_paths_after_move(
-  input: ActionRegistrationInput,
-  old_path: string,
-  new_path: string,
-  is_folder: boolean,
-) {
-  const scoped_root_path = input.stores.ui.filetree_scoped_root_path;
-  if (scoped_root_path) {
-    input.stores.ui.filetree_scoped_root_path = remap_path(
-      scoped_root_path,
-      old_path,
-      new_path,
-    );
-  }
-
-  if (is_folder) {
-    input.stores.ui.selected_folder_path = remap_path(
-      input.stores.ui.selected_folder_path,
-      old_path,
-      new_path,
-    );
-    input.stores.ui.filetree_revealed_note_path = remap_path(
-      input.stores.ui.filetree_revealed_note_path,
-      old_path,
-      new_path,
-    );
-    remap_expanded_paths(input, old_path, new_path);
-    return;
-  }
-
-  if (input.stores.ui.filetree_revealed_note_path === old_path) {
-    input.stores.ui.filetree_revealed_note_path = new_path;
-  }
-}
-
 export async function load_folder(
   input: ActionRegistrationInput,
   path: string,

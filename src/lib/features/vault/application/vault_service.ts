@@ -143,7 +143,7 @@ export class VaultService {
     }
   }
 
-  // The vault list can change while the app runs (web drafts come and go).
+  // The vault list can change while the app runs (drafts come and go).
   async refresh_vault_list(): Promise<void> {
     try {
       const recent_vaults = await this.vault_port.list_vaults();

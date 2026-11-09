@@ -153,27 +153,6 @@ export class EditorStore {
     this.bump_session_persist_revision();
   }
 
-  update_open_note_path_prefix(old_prefix: string, new_prefix: string) {
-    if (!this.open_note) return;
-    const current_path = this.open_note.meta.path;
-    if (!current_path.startsWith(old_prefix)) return;
-
-    const new_path =
-      `${new_prefix}${current_path.slice(old_prefix.length)}` as NotePath;
-    const name = note_name_from_path(new_path);
-    this.open_note = {
-      ...this.open_note,
-      meta: {
-        ...this.open_note.meta,
-        id: new_path,
-        path: new_path,
-        name,
-        title: name,
-      },
-    };
-    this.bump_session_persist_revision();
-  }
-
   set_cursor(note_id: NoteId, cursor: CursorInfo | null) {
     if (!this.open_note) return;
     if (this.open_note.meta.id !== note_id) return;

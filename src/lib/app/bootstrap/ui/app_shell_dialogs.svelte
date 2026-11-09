@@ -87,7 +87,6 @@
     recent_notes={stores.notes.recent_notes}
     created_at={stores.vault.vault?.created_at ?? null}
     last_opened_at={stores.vault.vault?.last_opened_at ?? null}
-    is_available={stores.vault.vault?.is_available ?? null}
     on_open_change={(open) => {
       if (!open) {
         void action_registry.execute(ACTION_IDS.ui_close_vault_dashboard);

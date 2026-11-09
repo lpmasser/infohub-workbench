@@ -620,7 +620,6 @@
                           created_at={stores.vault.vault.created_at ?? null}
                           last_opened_at={stores.vault.vault.last_opened_at ??
                             null}
-                          is_available={stores.vault.vault.is_available ?? null}
                           on_note_click={(note_path: string) =>
                             void action_registry.execute(ACTION_IDS.note_open, {
                               note_path,

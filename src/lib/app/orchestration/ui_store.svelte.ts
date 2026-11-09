@@ -147,7 +147,6 @@ export class UIStore {
   selected_items = $state(new SvelteSet<string>());
   selection_anchor = $state<string | null>(null);
   editor_settings = $state<EditorSettings>({ ...DEFAULT_EDITOR_SETTINGS });
-  system_dialog_open = $state(false);
   recent_command_ids = $state<string[]>([]);
 
   startup = $state<{ status: AsyncStatus; error: string | null }>({
@@ -362,10 +361,6 @@ export class UIStore {
   set_editor_settings(settings: EditorSettings) {
     this.editor_settings = settings;
     this.settings_dialog.current_settings = settings;
-  }
-
-  set_system_dialog_open(open: boolean) {
-    this.system_dialog_open = open;
   }
 
   set_recent_command_ids(ids: string[]) {

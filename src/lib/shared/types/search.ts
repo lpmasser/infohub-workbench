@@ -71,8 +71,6 @@ export type PlannedLinkSuggestion = {
   ref_count: number;
 };
 
-export type OrphanLink = PlannedLinkSuggestion;
-
 export type ExistingWikiSuggestion = {
   kind: "existing";
   note: NoteMeta;
@@ -95,27 +93,16 @@ export type InFileMatch = {
   context: string;
 };
 
-type IndexProgressMeta = {
-  mode?: "smart" | "dumb";
-  run_id?: number;
-  queued_work_items?: number;
-};
-
 export type IndexProgressEvent =
-  | ({ status: "started"; vault_id: string; total: number } & IndexProgressMeta)
-  | ({
-      status: "progress";
-      vault_id: string;
-      indexed: number;
-      total: number;
-    } & IndexProgressMeta)
-  | ({
+  | { status: "started"; vault_id: string; total: number }
+  | { status: "progress"; vault_id: string; indexed: number; total: number }
+  | {
       status: "completed";
       vault_id: string;
       indexed: number;
       elapsed_ms: number;
-    } & IndexProgressMeta)
-  | ({ status: "failed"; vault_id: string; error: string } & IndexProgressMeta);
+    }
+  | { status: "failed"; vault_id: string; error: string };
 
 export type OmnibarItem =
   | {
@@ -133,7 +120,6 @@ export type OmnibarItem =
       vault_name: string;
       vault_note_count?: number | null;
       vault_last_opened_at?: number | null;
-      vault_is_available?: boolean;
       score: number;
       snippet?: string | undefined;
       match_kind?: NoteMatchKind | undefined;

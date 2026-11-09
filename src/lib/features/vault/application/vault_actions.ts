@@ -1,7 +1,5 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import { is_unavailable_vault_error } from "$lib/features/vault/domain/vault_errors";
-import type { VaultId } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { toast } from "svelte-sonner";
 import { apply_opened_vault_session } from "./vault_action_helpers";
@@ -53,7 +51,6 @@ export function register_vault_actions(input: ActionRegistrationInput) {
   const handle_open_result = async (
     request_revision: number,
     result: Awaited<ReturnType<typeof services.vault.change_vault_by_id>>,
-    attempted_vault_id?: VaultId,
   ) => {
     if (request_revision !== change_vault_request_revision) {
       return;
@@ -74,10 +71,6 @@ export function register_vault_actions(input: ActionRegistrationInput) {
       error: result.error,
       unsaved_note_label: null,
     };
-
-    if (attempted_vault_id && is_unavailable_vault_error(result.error)) {
-      stores.vault.set_vault_availability(attempted_vault_id, false);
-    }
   };
 
   registry.register({
@@ -124,7 +117,7 @@ export function register_vault_actions(input: ActionRegistrationInput) {
 
         const result =
           await services.vault.change_vault_by_id(selected_vault_id);
-        await handle_open_result(request_revision, result, selected_vault_id);
+        await handle_open_result(request_revision, result);
       });
     },
   });

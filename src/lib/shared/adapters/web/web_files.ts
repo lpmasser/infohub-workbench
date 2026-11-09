@@ -1,8 +1,8 @@
 import {
   WebApi,
-  WebApiError,
   WORKSPACE_SOURCE,
   file_url,
+  is_web_api_error,
   type WebSourceId,
 } from "$lib/shared/adapters/web/web_api";
 
@@ -109,7 +109,7 @@ export class WebFiles {
     try {
       return (await this.read(WORKSPACE_SOURCE, path)).etag;
     } catch (error) {
-      if (error instanceof WebApiError && error.status === 404) return null;
+      if (is_web_api_error(error, 404)) return null;
       throw error;
     }
   }

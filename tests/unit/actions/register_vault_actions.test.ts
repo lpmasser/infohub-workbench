@@ -541,30 +541,6 @@ describe("register_vault_actions", () => {
     );
   });
 
-  it("marks selected vault unavailable when open fails with missing path", async () => {
-    const { registry, stores, services } = create_vault_actions_harness();
-    const target_vault_id = as_vault_id("vault-missing");
-    stores.vault.set_recent_vaults([
-      {
-        id: target_vault_id,
-        name: "Missing Vault",
-        path: as_vault_path("/vault/missing"),
-        created_at: 1,
-        is_available: true,
-      },
-    ]);
-
-    services.vault.change_vault_by_id = vi.fn().mockResolvedValue({
-      status: "failed",
-      error:
-        "A requested file or directory could not be found at the time an operation was processed.",
-    });
-
-    await registry.execute(ACTION_IDS.vault_select, target_vault_id);
-
-    expect(stores.vault.recent_vaults[0]?.is_available).toBe(false);
-  });
-
   it("opens vault dashboard after successful switch when enabled", async () => {
     const { registry, stores, services, execute_open_dashboard } =
       create_vault_actions_harness();

@@ -614,7 +614,7 @@ describe("SearchService", () => {
     ]);
   });
 
-  it("searches across available vaults and groups results by vault", async () => {
+  it("searches across vaults and groups results by vault", async () => {
     const search_port = {
       suggest_wiki_links: vi.fn().mockResolvedValue([]),
       suggest_planned_links: vi.fn().mockResolvedValue([]),
@@ -674,21 +674,12 @@ describe("SearchService", () => {
         name: "Work",
         path: as_vault_path("/vault/work"),
         created_at: 1,
-        is_available: true,
       },
       {
         id: as_vault_id("vault-research"),
         name: "Research",
         path: as_vault_path("/vault/research"),
         created_at: 1,
-        is_available: true,
-      },
-      {
-        id: as_vault_id("vault-offline"),
-        name: "Offline",
-        path: as_vault_path("/vault/offline"),
-        created_at: 1,
-        is_available: false,
       },
     ]);
 
@@ -743,7 +734,6 @@ describe("SearchService", () => {
         name: "A",
         path: as_vault_path("/vault/a"),
         created_at: 1,
-        is_available: true,
       },
     ]);
 
@@ -789,7 +779,6 @@ describe("SearchService", () => {
       name: "Active",
       path: as_vault_path("/vault/active"),
       created_at: 1,
-      is_available: true,
     });
     vault_store.set_recent_vaults([]);
 

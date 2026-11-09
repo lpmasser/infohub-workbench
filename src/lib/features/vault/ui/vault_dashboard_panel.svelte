@@ -11,7 +11,6 @@
     vault_path: string;
     created_at: number | null;
     last_opened_at: number | null;
-    is_available: boolean | null;
     on_note_click: (path: string) => void;
     on_new_note: () => void;
     on_search: () => void;
@@ -28,7 +27,6 @@
     vault_path,
     created_at,
     last_opened_at,
-    is_available,
     on_note_click,
     on_new_note,
     on_search,
@@ -50,7 +48,6 @@
     {recent_notes}
     {created_at}
     {last_opened_at}
-    {is_available}
     on_open_note={on_note_click}
     {on_new_note}
     on_search_vault={on_search}

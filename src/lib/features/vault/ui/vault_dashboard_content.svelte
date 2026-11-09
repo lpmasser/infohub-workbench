@@ -6,8 +6,6 @@
   import SearchIcon from "@lucide/svelte/icons/search";
   import ClockIcon from "@lucide/svelte/icons/clock";
   import InboxIcon from "@lucide/svelte/icons/inbox";
-  import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
-  import CircleXIcon from "@lucide/svelte/icons/circle-x";
   import RefreshCwIcon from "@lucide/svelte/icons/refresh-cw";
   import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
   import type { NoteMeta } from "$lib/shared/types/note";
@@ -21,7 +19,6 @@
     recent_notes: NoteMeta[];
     created_at: number | null;
     last_opened_at: number | null;
-    is_available: boolean | null;
     on_open_note: (note_path: string) => void;
     on_new_note: () => void;
     on_search_vault: () => void;
@@ -38,7 +35,6 @@
     recent_notes,
     created_at,
     last_opened_at,
-    is_available,
     on_open_note,
     on_new_note,
     on_search_vault,
@@ -165,24 +161,6 @@
         <span class="VaultDashboardContent__info-value"
           >{format_date(last_opened_at)}</span
         >
-        <span class="VaultDashboardContent__info-label">Status</span>
-        <span
-          class="VaultDashboardContent__info-value VaultDashboardContent__info-status"
-        >
-          {#if is_available === null}
-            —
-          {:else if is_available}
-            <CircleCheckIcon
-              class="VaultDashboardContent__info-status-icon VaultDashboardContent__info-status-icon--ok"
-            />
-            Available
-          {:else}
-            <CircleXIcon
-              class="VaultDashboardContent__info-status-icon VaultDashboardContent__info-status-icon--unavailable"
-            />
-            Unavailable
-          {/if}
-        </span>
       </div>
       {#if on_reindex}
         <Button
@@ -400,25 +378,6 @@
   .VaultDashboardContent__info-value--mono {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-  }
-
-  .VaultDashboardContent__info-status {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
-
-  :global(.VaultDashboardContent__info-status-icon) {
-    width: var(--size-icon-sm);
-    height: var(--size-icon-sm);
-  }
-
-  :global(.VaultDashboardContent__info-status-icon--ok) {
-    color: var(--interactive);
-  }
-
-  :global(.VaultDashboardContent__info-status-icon--unavailable) {
-    color: var(--muted-foreground);
   }
 
   :global(.VaultDashboardContent__reindex) {

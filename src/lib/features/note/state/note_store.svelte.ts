@@ -109,12 +109,6 @@ export class NotesStore {
     this.recent_notes = this.recent_notes.filter((note) => note.id !== note_id);
   }
 
-  remove_recent_notes_by_prefix(prefix: string) {
-    this.recent_notes = this.recent_notes.filter(
-      (note) => !note.path.startsWith(prefix),
-    );
-  }
-
   rename_recent_note(old_id: NoteId, next_note: NoteMeta) {
     const index = this.recent_notes.findIndex((note) =>
       paths_equal_ignore_case(note.id, old_id),
@@ -127,22 +121,6 @@ export class NotesStore {
     );
     filtered.splice(index, 0, next_note);
     this.recent_notes = normalize_recent_notes(filtered);
-  }
-
-  update_recent_note_path_prefix(old_prefix: string, new_prefix: string) {
-    const updated = this.recent_notes.map((note) => {
-      if (!note.path.startsWith(old_prefix)) {
-        return note;
-      }
-      const next_path =
-        `${new_prefix}${note.path.slice(old_prefix.length)}` as NotePath;
-      return {
-        ...note,
-        id: next_path,
-        path: next_path,
-      };
-    });
-    this.recent_notes = normalize_recent_notes(updated);
   }
 
   set_folder_paths(folder_paths: string[]) {
@@ -176,74 +154,10 @@ export class NotesStore {
     this.starred_paths = this.starred_paths.filter((p) => p !== path);
   }
 
-  remove_starred_paths_by_prefix(prefix_path: string) {
-    const prefix = `${prefix_path}/`;
-    this.starred_paths = this.starred_paths.filter(
-      (path) => path !== prefix_path && !path.startsWith(prefix),
-    );
-  }
-
   rename_starred_path(old_path: string, new_path: string) {
     this.starred_paths = normalize_starred_paths(
       this.starred_paths.map((p) => (p === old_path ? new_path : p)),
     );
-  }
-
-  rename_starred_paths_by_prefix(
-    old_prefix_path: string,
-    new_prefix_path: string,
-  ) {
-    const old_prefix = `${old_prefix_path}/`;
-    const new_prefix = `${new_prefix_path}/`;
-    this.starred_paths = normalize_starred_paths(
-      this.starred_paths.map((path) => {
-        if (path === old_prefix_path) return new_prefix_path;
-        if (!path.startsWith(old_prefix)) return path;
-        return `${new_prefix}${path.slice(old_prefix.length)}`;
-      }),
-    );
-  }
-
-  add_folder_path(path: string) {
-    if (this.folder_paths.includes(path)) return;
-    this.folder_paths = [...this.folder_paths, path].sort((a, b) =>
-      a.localeCompare(b),
-    );
-  }
-
-  remove_folder(path: string) {
-    const prefix = `${path}/`;
-    this.notes = this.notes.filter((note) => !note.path.startsWith(prefix));
-    this.folder_paths = this.folder_paths.filter(
-      (folder_path) => folder_path !== path && !folder_path.startsWith(prefix),
-    );
-    this.remove_starred_paths_by_prefix(path);
-  }
-
-  rename_folder(old_path: string, new_path: string) {
-    const old_prefix = `${old_path}/`;
-    const new_prefix = `${new_path}/`;
-
-    this.notes = this.notes.map((note) => {
-      if (!note.path.startsWith(old_prefix)) return note;
-      const updated_path =
-        `${new_prefix}${note.path.slice(old_prefix.length)}` as NotePath;
-      return {
-        ...note,
-        id: updated_path,
-        path: updated_path,
-      };
-    });
-
-    this.folder_paths = this.folder_paths.map((folder_path) => {
-      if (folder_path === old_path) return new_path;
-      if (folder_path.startsWith(old_prefix)) {
-        return `${new_prefix}${folder_path.slice(old_prefix.length)}`;
-      }
-      return folder_path;
-    });
-
-    this.rename_starred_paths_by_prefix(old_path, new_path);
   }
 
   merge_folder_contents(folder_path: string, contents: FolderContents) {

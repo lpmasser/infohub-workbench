@@ -52,7 +52,6 @@ function to_vault(source: Source): Vault {
     path: as_vault_path(source.id),
     name: source.draft?.source ? `草稿：${source.draft.source}` : source.label,
     created_at: 0,
-    is_available: true,
     read_only: !source.writable,
     description,
   };

@@ -6,10 +6,11 @@ import {
 } from "$lib/features/note/types/note_errors";
 import {
   WebApiError,
-  WORKSPACE_SOURCE,
+  is_web_api_error,
+  require_workspace,
 } from "$lib/shared/adapters/web/web_api";
 import type { WebFiles, WebTree } from "$lib/shared/adapters/web/web_files";
-import { as_markdown_text, type VaultId } from "$lib/shared/types/ids";
+import { as_markdown_text } from "$lib/shared/types/ids";
 import { note_meta } from "$lib/shared/utils/note_meta";
 import type {
   FolderContents,
@@ -60,15 +61,6 @@ function not_found(path: string): WebApiError {
   return new WebApiError(404, "FILE_NOT_FOUND", `not found: ${path}`);
 }
 
-function require_workspace(vault_id: VaultId): void {
-  if (vault_id !== WORKSPACE_SOURCE)
-    throw new Error("只读来源不能修改，请切换到我的工作区");
-}
-
-function is_conflict(error: unknown): error is WebApiError {
-  return error instanceof WebApiError && error.status === 409;
-}
-
 export function create_notes_web_adapter(files: WebFiles): NotesPort {
   async function existing_version(path: string): Promise<string> {
     const version = await files.current_version(path);
@@ -88,7 +80,7 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
         base_version === null ? { create: true } : { if_match: base_version },
       );
     } catch (error) {
-      if (!is_conflict(error)) throw error;
+      if (!is_web_api_error(error, 409)) throw error;
       throw base_version === null
         ? new NoteExistsError(path)
         : new NoteVersionConflictError(path);
@@ -106,7 +98,7 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
     try {
       await files.move(from, to, version, destination_version);
     } catch (error) {
-      if (!is_conflict(error)) throw error;
+      if (!is_web_api_error(error, 409)) throw error;
       throw error.details.path === to
         ? new NoteExistsError(to)
         : new NoteVersionConflictError(from);
@@ -177,7 +169,8 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
       try {
         await files.remove(note_id, await existing_version(note_id));
       } catch (error) {
-        if (is_conflict(error)) throw new NoteVersionConflictError(note_id);
+        if (is_web_api_error(error, 409))
+          throw new NoteVersionConflictError(note_id);
         throw error;
       }
     },

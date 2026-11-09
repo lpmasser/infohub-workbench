@@ -2,8 +2,6 @@ import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import { step_editor_zoom } from "$lib/features/settings/domain/editor_zoom";
-import type { SettingsService } from "$lib/features/settings/application/settings_service";
-import type { ActionRegistry, UIStore } from "$lib/app";
 import {
   DEFAULT_EDITOR_SETTINGS,
   type EditorSettings,
@@ -164,11 +162,7 @@ export function register_settings_actions(input: ActionRegistrationInput) {
   });
 }
 
-export function register_editor_zoom_actions(input: {
-  registry: ActionRegistry;
-  stores: { ui: UIStore };
-  services: { settings: SettingsService };
-}) {
+function register_editor_zoom_actions(input: ActionRegistrationInput) {
   const { registry, stores, services } = input;
 
   async function set_editor_zoom(zoom: number) {

@@ -4,7 +4,6 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import {
   clear_folder_filetree_state,
   load_folder,
-  remap_ui_paths_after_move,
   set_pagination,
   transform_filetree_paths,
 } from "$lib/features/folder/application/filetree_action_helpers";
@@ -183,22 +182,14 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     stores.vault.bump_generation();
     close_move_conflict_dialog();
 
+    // Only files move; the server refuses folders.
     for (const move_result of result.results) {
-      const item = items.find((entry) => entry.path === move_result.path);
-      if (!item || !move_result.success) {
+      if (!move_result.success) {
         continue;
       }
 
-      remap_ui_paths_after_move(
-        input,
-        move_result.path,
-        move_result.new_path,
-        item.is_folder,
-      );
-
-      if (item.is_folder) {
-        clear_folder_filetree_state(input, move_result.path);
-        clear_folder_filetree_state(input, move_result.new_path);
+      if (stores.ui.filetree_revealed_note_path === move_result.path) {
+        stores.ui.filetree_revealed_note_path = move_result.new_path;
       }
       clear_folder_filetree_state(input, parent_folder_path(move_result.path));
       clear_folder_filetree_state(

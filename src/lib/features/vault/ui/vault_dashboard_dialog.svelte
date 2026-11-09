@@ -14,7 +14,6 @@
     recent_notes: NoteMeta[];
     created_at: number | null;
     last_opened_at: number | null;
-    is_available: boolean | null;
     on_open_change: (open: boolean) => void;
     on_open_note: (note_path: string) => void;
     on_new_note: () => void;
@@ -32,7 +31,6 @@
     recent_notes,
     created_at,
     last_opened_at,
-    is_available,
     on_open_change,
     on_open_note,
     on_new_note,
@@ -65,7 +63,6 @@
       {recent_notes}
       {created_at}
       {last_opened_at}
-      {is_available}
       on_open_note={(path) => run_and_close(() => on_open_note(path))}
       on_new_note={() => run_and_close(on_new_note)}
       on_search_vault={() => run_and_close(on_search_vault)}

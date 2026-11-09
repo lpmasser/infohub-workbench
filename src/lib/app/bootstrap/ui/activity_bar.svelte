@@ -22,8 +22,8 @@
     on_open_commands: () => void;
     on_open_help: () => void;
     on_open_settings: () => void;
-    // Browser build: end the server session.
-    on_sign_out?: (() => void) | undefined;
+    // Ends the server session.
+    on_sign_out: () => void;
   };
 
   let {
@@ -123,17 +123,15 @@
     >
       <Settings class="ActivityBar__icon" />
     </button>
-    {#if on_sign_out}
-      <button
-        type="button"
-        class="ActivityBar__button"
-        onclick={on_sign_out}
-        aria-label="退出登录"
-        title="退出登录"
-      >
-        <LogOut class="ActivityBar__icon" />
-      </button>
-    {/if}
+    <button
+      type="button"
+      class="ActivityBar__button"
+      onclick={on_sign_out}
+      aria-label="退出登录"
+      title="退出登录"
+    >
+      <LogOut class="ActivityBar__icon" />
+    </button>
   </div>
 </nav>
 
