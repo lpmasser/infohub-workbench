@@ -3,6 +3,7 @@
     Files,
     LayoutDashboard,
     ListTodo,
+    MessageSquareText,
     Settings,
     Star,
     CircleHelp,
@@ -19,6 +20,7 @@
     on_open_dashboard: () => void;
     on_open_starred: () => void;
     on_open_overview: () => void;
+    on_open_annotations: () => void;
     on_open_commands: () => void;
     on_open_help: () => void;
     on_open_settings: () => void;
@@ -33,6 +35,7 @@
     on_open_dashboard,
     on_open_starred,
     on_open_overview,
+    on_open_annotations,
     on_open_commands,
     on_open_help,
     on_open_settings,
@@ -101,6 +104,18 @@
       title="工作汇总"
     >
       <ListTodo class="ActivityBar__icon" />
+    </button>
+    <button
+      type="button"
+      class="ActivityBar__button"
+      class:ActivityBar__button--active={sidebar_open &&
+        active_view === "annotations"}
+      onclick={on_open_annotations}
+      aria-pressed={sidebar_open && active_view === "annotations"}
+      aria-label="批注"
+      title="批注"
+    >
+      <MessageSquareText class="ActivityBar__icon" />
     </button>
   </div>
 

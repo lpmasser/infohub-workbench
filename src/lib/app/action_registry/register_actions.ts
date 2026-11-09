@@ -2,6 +2,8 @@ import type { ActionRegistrationInput } from "$lib/app/action_registry/action_re
 import { register_app_actions } from "$lib/app/orchestration/app_actions";
 import { register_note_actions } from "$lib/features/note";
 import { register_folder_actions } from "$lib/features/folder";
+import { register_annotation_actions } from "$lib/features/annotation";
+import { register_deep_link_actions } from "$lib/features/deep_link";
 import { register_vault_actions } from "$lib/features/vault";
 import { register_settings_actions } from "$lib/features/settings";
 import {
@@ -18,6 +20,8 @@ export function register_actions(input: ActionRegistrationInput) {
   register_app_actions(input);
   register_note_actions(input);
   register_folder_actions(input);
+  register_annotation_actions(input);
+  register_deep_link_actions(input);
   register_vault_actions(input);
   register_settings_actions(input);
   register_omnibar_actions(input);

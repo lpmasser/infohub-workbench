@@ -6,6 +6,7 @@ export function create_workspace_queries_reactor(
   context: Pick<
     ReactorContext,
     | "infohub_service"
+    | "annotation_service"
     | "infohub_store"
     | "editor_service"
     | "vault_store"
@@ -33,6 +34,20 @@ export function create_workspace_queries_reactor(
         context.ui_store.sidebar_view === "overview";
       untrack(() => {
         if (vault_id && open) void context.infohub_service.refresh_overview();
+      });
+    });
+    // The annotation list is a scan of every document: read it only while
+    // the panel shows, again after the source or its files change.
+    $effect(() => {
+      const vault_id = context.vault_store.vault?.id;
+      const open =
+        context.ui_store.sidebar_open &&
+        context.ui_store.sidebar_view === "annotations";
+      const status = context.search_store.index_progress.status;
+      const settled = status !== "indexing";
+      untrack(() => {
+        if (vault_id && open && settled)
+          void context.annotation_service.refresh();
       });
     });
     $effect(() => {

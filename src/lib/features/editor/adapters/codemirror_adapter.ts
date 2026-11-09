@@ -15,6 +15,8 @@ import {
   syntaxTreeAvailable,
 } from "@codemirror/language";
 import {
+  annotations,
+  insert_after_selected_block,
   callouts,
   clipboard,
   code_blocks,
@@ -165,6 +167,7 @@ export function create_codemirror_editor_port(
             config.resolve_frontmatter_reference?.(id, field),
           open_reference: (path) => events.on_reference_click?.(path),
         }),
+        ...(config.annotations ? [annotations(config.annotations)] : []),
         callouts(),
         code_blocks({
           languages: code_languages,
@@ -381,6 +384,19 @@ export function create_codemirror_editor_port(
             focus_editor();
           }
         },
+        // Lines match the saved source: line endings are normalized but not
+        // added or removed. Only scrolls: a caret there would turn a rendered
+        // block (an annotation card) back into source.
+        reveal_line(line) {
+          const target = view.state.doc.line(
+            Math.min(Math.max(1, line), view.state.doc.lines),
+          ).from;
+          view.dispatch({
+            effects: EditorView.scrollIntoView(target, { y: "center" }),
+          });
+        },
+        insert_after_selected_block: (text) =>
+          insert_after_selected_block(view, text),
         restore_cursor,
         get_scroll_top: () => view.scrollDOM.scrollTop,
         set_scroll_top(value) {

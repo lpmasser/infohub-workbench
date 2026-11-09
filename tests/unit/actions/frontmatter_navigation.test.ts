@@ -24,6 +24,7 @@ it("a property reference reaches the real note-open action with its exact mapped
       bootstrap_default_vault_path: null,
     },
     sign_out: () => Promise.resolve(),
+    username: "tester",
   });
   const context = reactors.mock.calls[0]?.[0] as ReactorContext;
   const vault = create_test_vault();

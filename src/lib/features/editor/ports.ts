@@ -1,4 +1,7 @@
-import type { FrontmatterOptions } from "@otterly/markdown-editor";
+import type {
+  AnnotationOptions,
+  FrontmatterOptions,
+} from "@otterly/markdown-editor";
 import type { VaultId } from "$lib/shared/types/ids";
 import type {
   CodeBlockViewStates,
@@ -35,6 +38,10 @@ export type EditorSession = {
   focus: () => void;
   refresh_frontmatter?: () => void;
   reveal_heading?: (fragment: string) => void;
+  // Scrolls to a 1-based line of the saved source.
+  reveal_line?: (line: number) => void;
+  // New lines after the block holding the selection; false if not inserted.
+  insert_after_selected_block?: (text: string) => boolean;
   // Switches a Markdown note between its rich and source views. Does nothing
   // for other files.
   toggle_source_mode: () => void;
@@ -72,6 +79,7 @@ export type EditorEventHandlers = {
 
 export type EditorSessionConfig = {
   resolve_frontmatter_reference?: FrontmatterOptions["resolve_id"];
+  annotations?: AnnotationOptions;
   root: HTMLElement;
   initial_markdown: string;
   note_path: string;

@@ -13,6 +13,7 @@
   } from "$lib/features/note";
   import { FiletreeMoveConflictDialog } from "$lib/features/folder";
   import { SettingsDialog } from "$lib/features/settings";
+  import { AnnotationDialog } from "$lib/features/annotation";
   import { Omnibar } from "$lib/features/search";
   import { TabCloseConfirmDialog } from "$lib/features/tab";
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
@@ -300,6 +301,16 @@
   on_toggle_apply_to_all={(checked) => {
     stores.ui.tab_close_confirm.apply_to_all = checked;
   }}
+/>
+
+<AnnotationDialog
+  open={stores.ui.annotation_dialog.open}
+  text={stores.ui.annotation_dialog.text}
+  error={stores.ui.annotation_dialog.error}
+  on_update={(text) =>
+    void action_registry.execute(ACTION_IDS.annotation_update_text, text)}
+  on_confirm={() => void action_registry.execute(ACTION_IDS.annotation_confirm)}
+  on_cancel={() => void action_registry.execute(ACTION_IDS.annotation_cancel)}
 />
 
 <HelpDialog

@@ -25,7 +25,8 @@
       stores.ui.settings_dialog.open ||
       stores.ui.image_paste_dialog.open ||
       stores.ui.tab_close_confirm.open ||
-      stores.ui.help_dialog.open,
+      stores.ui.help_dialog.open ||
+      stores.ui.annotation_dialog.open,
   );
 
   // Every bits-ui Dialog.Content is role="dialog" (alertdialog for alerts) while

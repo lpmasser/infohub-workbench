@@ -112,7 +112,11 @@ async function mount_ready_vault_state(
     result.editor_settings ?? { ...DEFAULT_EDITOR_SETTINGS },
   );
 
-  if (input.stores.ui.editor_settings.show_vault_dashboard_on_open) {
+  // A link to a document opens that document, not the dashboard over it.
+  if (
+    input.stores.ui.editor_settings.show_vault_dashboard_on_open &&
+    input.services.deep_link.initial.kind === "home"
+  ) {
     await input.registry.execute(ACTION_IDS.ui_open_vault_dashboard);
   }
 }
@@ -140,6 +144,11 @@ async function execute_app_mounted(input: ActionRegistrationInput) {
 
   await mount_ready_vault_state(input, bootstrap_data.vault_initialize_result);
   set_startup_idle(input);
+  await input.registry.execute(
+    ACTION_IDS.deep_link_open,
+    input.services.deep_link.initial,
+  );
+  input.services.deep_link.finish_initial();
   if (started_at !== null) {
     log.debug("App bootstrap ready", {
       duration_ms: performance.now() - started_at,

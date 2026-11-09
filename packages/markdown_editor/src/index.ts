@@ -129,3 +129,9 @@ export {
   type MarkdownClipboardOptions,
 } from "./plugins/clipboard.js";
 export { callouts } from "./plugins/callouts/index.js";
+export {
+  annotations,
+  insert_after_selected_block,
+  type AnnotationNote,
+  type AnnotationOptions,
+} from "./plugins/annotations/index.js";

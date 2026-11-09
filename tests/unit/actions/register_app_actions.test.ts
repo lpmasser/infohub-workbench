@@ -60,6 +60,10 @@ function create_harness(options: HarnessOptions = {}) {
   };
 
   const services = {
+    deep_link: {
+      initial: { kind: "home", source: "workspace", fragment: null },
+      finish_initial: vi.fn(),
+    },
     vault: {
       initialize: vi.fn().mockResolvedValue({
         status: "ready",
@@ -123,6 +127,12 @@ function create_harness(options: HarnessOptions = {}) {
       reset_app_state: options.reset_app_state ?? false,
       bootstrap_default_vault_path: null,
     },
+  });
+
+  registry.register({
+    id: ACTION_IDS.deep_link_open,
+    label: "Open Link",
+    execute: async () => {},
   });
 
   registry.register({

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { InfoHubOverview } from "$lib/features/infohub";
+  import { AnnotationsPanel } from "$lib/features/annotation";
   import * as Sidebar from "$lib/components/ui/sidebar/index.js";
   import * as Resizable from "$lib/components/ui/resizable/index.js";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
@@ -355,6 +356,15 @@
   const sidebar_header_actions = $derived.by(() => {
     const view = stores.ui.sidebar_view;
     if (view === "overview") return [];
+    if (view === "annotations")
+      return [
+        {
+          icon: RefreshCw,
+          label: "Refresh",
+          onclick: () =>
+            void action_registry.execute(ACTION_IDS.annotation_refresh),
+        },
+      ];
     if (view === "starred") return starred_header_actions;
     if (view === "dashboard") return dashboard_header_actions;
     return explorer_header_actions;
@@ -419,6 +429,19 @@
             "overview",
           );
         }}
+        on_open_annotations={() => {
+          if (
+            stores.ui.sidebar_open &&
+            stores.ui.sidebar_view === "annotations"
+          ) {
+            void action_registry.execute(ACTION_IDS.ui_toggle_sidebar);
+            return;
+          }
+          void action_registry.execute(
+            ACTION_IDS.ui_set_sidebar_view,
+            "annotations",
+          );
+        }}
         on_open_commands={() =>
           void action_registry.execute(ACTION_IDS.omnibar_open)}
         on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}
@@ -444,6 +467,8 @@
                   <div class="SidebarHeader">
                     {#if stores.ui.sidebar_view === "overview"}
                       <span class="SidebarHeader__title">工作汇总</span>
+                    {:else if stores.ui.sidebar_view === "annotations"}
+                      <span class="SidebarHeader__title">批注</span>
                     {:else if stores.ui.sidebar_view === "starred"}
                       <span class="SidebarHeader__title">Starred</span>
                     {:else if stores.ui.sidebar_view === "dashboard"}
@@ -520,6 +545,9 @@
                 </Sidebar.Header>
 
                 <Sidebar.Content class="overflow-hidden">
+                  {#if stores.ui.sidebar_view === "annotations"}
+                    <AnnotationsPanel />
+                  {/if}
                   {#if stores.ui.sidebar_view === "overview"}
                     <InfoHubOverview
                       on_open={(path) => {

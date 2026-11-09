@@ -10,6 +10,7 @@
   type Props = {
     ports: Ports;
     sign_out: () => Promise<void>;
+    username: string;
   };
 
   const props: Props = $props();
@@ -24,6 +25,7 @@
         bootstrap_default_vault_path: as_vault_path(WORKSPACE_SOURCE),
       },
       sign_out: props.sign_out,
+      username: props.username,
     }),
   );
 

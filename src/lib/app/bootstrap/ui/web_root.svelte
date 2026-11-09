@@ -13,12 +13,14 @@
   // tabs and unsaved text survive signing in again.
   let expired = $state(false);
   let error = $state<string | null>(null);
+  let username = $state<string | null>(null);
 
   function check_session() {
     status = "checking";
     session
       .current()
       .then((info) => {
+        username = info?.username ?? null;
         status = info ? "signed_in" : "signed_out";
       })
       .catch((failure: unknown) => {
@@ -36,8 +38,9 @@
     return stop;
   });
 
-  async function sign_in(username: string, password: string) {
-    await session.login(username, password);
+  async function sign_in(name: string, password: string) {
+    const info = await session.login(name, password);
+    username = info.username;
     expired = false;
     status = "signed_in";
   }
@@ -49,8 +52,8 @@
   }
 </script>
 
-{#if status === "signed_in"}
-  <AppRoot {ports} {sign_out} />
+{#if status === "signed_in" && username}
+  <AppRoot {ports} {sign_out} {username} />
 {/if}
 
 {#if expired}

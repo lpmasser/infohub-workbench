@@ -35,6 +35,7 @@ it("refreshes an open search on index completion without subscribing to the acti
     vault_store: new VaultStore(),
     infohub_store: new InfoHubStore(),
     editor_service: { refresh_frontmatter() {} } as never,
+    annotation_service: { refresh: () => Promise.resolve() } as never,
     infohub_service: {
       select() {},
       watch_sync: () => () => {},
@@ -86,6 +87,7 @@ it("does no overview IO while idle, refreshes when the overview sidebar becomes 
         overview_io.push(source);
         return Promise.resolve(infohub_overview(source));
       },
+      object_path: () => Promise.resolve(null),
       watch_sync_status: (_vault_id, handlers) => {
         report_sync = handlers.on_status;
         handlers.on_status({
@@ -105,6 +107,7 @@ it("does no overview IO while idle, refreshes when the overview sidebar becomes 
     search_store,
     ui_store,
     vault_store,
+    annotation_service: { refresh: () => Promise.resolve() } as never,
     infohub_service: service,
     action_registry: { execute: () => Promise.resolve() } as never,
   });

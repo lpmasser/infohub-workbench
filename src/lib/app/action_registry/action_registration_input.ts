@@ -2,6 +2,8 @@ import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { AppMountConfig, VaultService } from "$lib/features/vault";
 import type { NoteService } from "$lib/features/note";
 import type { FolderService } from "$lib/features/folder";
+import type { AnnotationService } from "$lib/features/annotation";
+import type { DeepLinkService } from "$lib/features/deep_link";
 import type { SettingsService } from "$lib/features/settings";
 import type { SearchService } from "$lib/features/search";
 import type { EditorService } from "$lib/features/editor";
@@ -34,6 +36,8 @@ export type ActionRegistrationInput = {
     vault: VaultService;
     note: NoteService;
     folder: FolderService;
+    annotation: AnnotationService;
+    deep_link: DeepLinkService;
     settings: SettingsService;
     search: SearchService;
     editor: EditorService;
