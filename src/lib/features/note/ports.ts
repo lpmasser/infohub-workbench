@@ -24,30 +24,6 @@ export type WriteImageAssetInput = {
   store_with_note?: boolean;
 };
 
-export type MarkdownCleanupChange = {
-  note_id: NoteId;
-  expected_mtime_ms: number;
-  original_markdown: string;
-  cleaned_markdown: string;
-};
-
-export type MarkdownCleanupBackupInfo = {
-  id: string;
-  created_at_ms: number;
-  note_count: number;
-};
-
-export type MarkdownCleanupBatchResult = {
-  backup: MarkdownCleanupBackupInfo;
-  updated_notes: NoteMeta[];
-};
-
-export type MarkdownCleanupRestoreResult = {
-  backup: MarkdownCleanupBackupInfo;
-  restored_notes: NoteMeta[];
-  skipped_note_ids: NoteId[];
-};
-
 export interface AssetsPort {
   resolve_asset_url(
     vault_id: VaultId,
@@ -64,41 +40,24 @@ export interface NotesPort {
   list_folders(vault_id: VaultId): Promise<string[]>;
   read_note(vault_id: VaultId, note_id: NoteId): Promise<NoteDoc>;
   read_note_meta(vault_id: VaultId, note_id: NoteId): Promise<NoteMeta>;
+  // Writes only if the file is still at base_version (null: only if it does
+  // not exist). Resolves with the new version; a mismatch rejects with
+  // NoteVersionConflictError and leaves the file alone.
   write_note(
     vault_id: VaultId,
     note_id: NoteId,
     markdown: MarkdownText,
-    expected_mtime_ms?: number,
-  ): Promise<number>;
-  apply_markdown_cleanup(
-    vault_id: VaultId,
-    changes: MarkdownCleanupChange[],
-  ): Promise<MarkdownCleanupBatchResult>;
-  get_latest_markdown_cleanup_backup(
-    vault_id: VaultId,
-  ): Promise<MarkdownCleanupBackupInfo | null>;
-  restore_latest_markdown_cleanup(
-    vault_id: VaultId,
-    skip_note_ids?: NoteId[],
-  ): Promise<MarkdownCleanupRestoreResult | null>;
+    base_version: string | null,
+  ): Promise<string>;
+  // The version on the server now, or null when the file does not exist.
+  current_version(vault_id: VaultId, note_id: NoteId): Promise<string | null>;
   create_note(
     vault_id: VaultId,
     note_path: NotePath,
     initial_markdown: MarkdownText,
   ): Promise<NoteMeta>;
-  create_folder(
-    vault_id: VaultId,
-    parent_path: string,
-    folder_name: string,
-  ): Promise<void>;
   rename_note(vault_id: VaultId, from: NotePath, to: NotePath): Promise<void>;
   delete_note(vault_id: VaultId, note_id: NoteId): Promise<void>;
-  rename_folder(
-    vault_id: VaultId,
-    from_path: string,
-    to_path: string,
-  ): Promise<void>;
-  delete_folder(vault_id: VaultId, folder_path: string): Promise<void>;
   list_folder_contents(
     vault_id: VaultId,
     folder_path: string,

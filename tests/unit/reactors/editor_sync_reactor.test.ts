@@ -12,7 +12,7 @@ function open_note(buffer_id: string) {
       path: as_note_path("notes/a.md"),
       name: "a.md",
       title: "a",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text("# A"),

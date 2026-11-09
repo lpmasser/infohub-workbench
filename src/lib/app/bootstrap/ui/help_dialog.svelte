@@ -39,7 +39,6 @@
     "navigation",
     "tabs",
     "editing",
-    "git",
   ];
 
   const app_category_labels: Record<HotkeyCategory, string> = {
@@ -47,7 +46,6 @@
     navigation: "Navigation",
     tabs: "Tabs",
     editing: "Editing",
-    git: "Git",
   };
 
   const filtered_app_bindings = $derived.by(() => {

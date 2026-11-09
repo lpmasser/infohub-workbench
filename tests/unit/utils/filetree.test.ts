@@ -16,7 +16,7 @@ function create_note(path: string, title: string = ""): NoteMeta {
     path: as_note_path(path),
     name: path.split("/").at(-1)?.replace(/\.md$/, "") ?? "",
     title: title || path.replace(/\.md$/, ""),
-    mtime_ms: 0,
+    version: null,
     size_bytes: 0,
   };
 }

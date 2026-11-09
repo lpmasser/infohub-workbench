@@ -14,7 +14,7 @@ function mock_open_note(path: string): OpenNoteState {
       path: as_note_path(path),
       name: path.replace(".md", ""),
       title: path.replace(".md", ""),
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text(""),

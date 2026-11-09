@@ -8,7 +8,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { register_find_in_file_actions } from "$lib/features/search/application/find_in_file_actions";
 
 function create_find_actions_harness() {
@@ -21,7 +20,6 @@ function create_find_actions_harness() {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
   };
   const focus = vi.fn();
 

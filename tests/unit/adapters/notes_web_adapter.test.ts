@@ -1,5 +1,9 @@
 import { expect, it } from "vitest";
 import { create_notes_web_adapter } from "$lib/features/note/adapters/notes_web_adapter";
+import {
+  NoteExistsError,
+  NoteVersionConflictError,
+} from "$lib/features/note/types/note_errors";
 import { WebApi } from "$lib/shared/adapters/web/web_api";
 import { WebFiles } from "$lib/shared/adapters/web/web_files";
 import { as_note_path, as_vault_id } from "$lib/shared/types/ids";
@@ -69,7 +73,7 @@ it("writes an unedited note back byte for byte, keeping a byte order mark and CR
     workspace,
     path,
     doc.markdown,
-    doc.meta.mtime_ms,
+    doc.meta.version,
   );
   expect(server.puts).toHaveLength(1);
   expect([...(server.puts[0]?.body ?? [])]).toEqual([...original]);
@@ -85,29 +89,19 @@ it("saves only against the version the page loaded and reports a change elsewher
       workspace,
       path,
       "mine\n" as never,
-      doc.meta.mtime_ms,
+      doc.meta.version,
     ),
-  ).rejects.toThrow("conflict:mtime_mismatch");
-  // A version token this page never issued cannot be matched to an ETag.
-  const puts_before = server.puts.length;
+  ).rejects.toBeInstanceOf(NoteVersionConflictError);
+  // Without a known base the write may only create; the file exists.
   await expect(
-    server.adapter.write_note(workspace, path, "mine\n" as never, 12345),
-  ).rejects.toThrow("conflict:mtime_mismatch");
-  expect(server.puts).toHaveLength(puts_before);
-});
-
-it("keeps my changes only on the explicit token 0, against the current version", async () => {
-  const server = fake_server(new TextEncoder().encode("v1\n"));
-  await server.adapter.read_note(workspace, path);
-  server.change_elsewhere();
-  await server.adapter.write_note(workspace, path, "mine\n" as never, 0);
-  expect(new TextDecoder().decode(server.puts.at(-1)?.body)).toBe("mine\n");
+    server.adapter.write_note(workspace, path, "mine\n" as never, null),
+  ).rejects.toBeInstanceOf(NoteExistsError);
 });
 
 it("refuses to write to a read-only source before any request", async () => {
   const server = fake_server(new TextEncoder().encode("v1\n"));
   await expect(
-    server.adapter.write_note(as_vault_id("main"), path, "x" as never, 0),
+    server.adapter.write_note(as_vault_id("main"), path, "x" as never, null),
   ).rejects.toThrow("只读来源");
   expect(server.puts).toHaveLength(0);
 });

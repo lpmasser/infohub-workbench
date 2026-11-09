@@ -10,7 +10,6 @@
   import FilePlusIcon from "@lucide/svelte/icons/file-plus";
   import FolderOpenIcon from "@lucide/svelte/icons/folder-open";
   import LibraryIcon from "@lucide/svelte/icons/library";
-  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import BookmarkIcon from "@lucide/svelte/icons/bookmark";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
@@ -42,7 +41,6 @@
     "folder-open": FolderOpenIcon,
     settings: SettingsIcon,
     keyboard: KeyboardIcon,
-    "git-branch": GitBranchIcon,
     history: HistoryIcon,
     bookmark: BookmarkIcon,
     link: LinkIcon,
@@ -331,7 +329,6 @@
       case "store_attachments_with_note":
       case "show_hidden_files":
       case "autosave_enabled":
-      case "git_autocommit_enabled":
       case "show_vault_dashboard_on_open":
         return settings[key] ? "On" : "Off";
       case "autosave_delay_ms":

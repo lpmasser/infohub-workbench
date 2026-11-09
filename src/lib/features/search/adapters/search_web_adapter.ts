@@ -1,8 +1,7 @@
 import type { SearchPort } from "$lib/features/search/ports";
 import { resolve_wiki_target } from "$lib/features/search/domain/resolve_wiki_target";
 import type { WebFiles } from "$lib/shared/adapters/web/web_files";
-import { as_note_path } from "$lib/shared/types/ids";
-import type { NoteMeta } from "$lib/shared/types/note";
+import { note_meta } from "$lib/shared/utils/note_meta";
 import type { NoteSearchHit } from "$lib/shared/types/search";
 
 type SearchResponse = {
@@ -13,12 +12,6 @@ type SearchResponse = {
 
 const SEARCH_LIMIT = 500;
 
-function meta(path: string, size_bytes: number): NoteMeta {
-  const id = as_note_path(path);
-  const name = (path.split("/").at(-1) ?? path).replace(/\.md$/, "");
-  return { id, path: id, name, title: name, mtime_ms: 0, size_bytes };
-}
-
 // File-name matches come from the tree the page already has. Names starting
 // with the query rank first, then names containing it, then paths.
 function rank_path(path: string, query: string): number {
@@ -28,10 +21,6 @@ function rank_path(path: string, query: string): number {
   if (name.includes(query)) return 2;
   if (lower.includes(query)) return 1;
   return 0;
-}
-
-function no_link_index(): Promise<never> {
-  return Promise.reject(new Error("网页版没有链接索引"));
 }
 
 export function create_search_web_adapter(files: WebFiles): SearchPort {
@@ -47,7 +36,7 @@ export function create_search_web_adapter(files: WebFiles): SearchPort {
     for (const [path, size] of tree.files) {
       if (markdown_only && !path.toLowerCase().endsWith(".md")) continue;
       const score = needle ? rank_path(path, needle) : 1;
-      if (score > 0) hits.push({ note: meta(path, size), score });
+      if (score > 0) hits.push({ note: note_meta(path, size), score });
     }
     return hits
       .sort(
@@ -79,7 +68,7 @@ export function create_search_web_adapter(files: WebFiles): SearchPort {
           continue;
         }
         hits.set(match.path, {
-          note: meta(match.path, tree?.files.get(match.path) ?? 0),
+          note: note_meta(match.path, tree?.files.get(match.path) ?? 0),
           score: 1,
           snippet: match.snippet,
         });
@@ -96,10 +85,9 @@ export function create_search_web_adapter(files: WebFiles): SearchPort {
         score: hit.score,
       }));
     },
+    // Planned notes come from an index of unresolved links, which the
+    // server does not keep.
     suggest_planned_links: () => Promise.resolve([]),
-    get_note_links_snapshot: no_link_index,
-    extract_local_note_links: no_link_index,
-    rewrite_note_links: no_link_index,
     resolve_note_link: (source_path, raw_target) =>
       Promise.resolve(resolve_wiki_target(source_path, raw_target)),
   };

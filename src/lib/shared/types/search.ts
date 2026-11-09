@@ -6,7 +6,6 @@ export type SearchCommandDefinition = {
     | "create_new_note"
     | "save_note"
     | "toggle_source_mode"
-    | "clean_up_legacy_markdown"
     | "change_vault"
     | "open_settings"
     | "open_theme_settings"
@@ -20,11 +19,7 @@ export type SearchCommandDefinition = {
     | "reopen_closed_tab"
     | "sync_index"
     | "reindex_vault"
-    | "show_vault_dashboard"
-    | "git_version_history"
-    | "git_create_checkpoint"
-    | "git_init_repo"
-    | "toggle_links_panel";
+    | "show_vault_dashboard";
   label: string;
   description: string;
   keywords: string[];
@@ -33,7 +28,6 @@ export type SearchCommandDefinition = {
     | "folder-open"
     | "settings"
     | "keyboard"
-    | "git-branch"
     | "history"
     | "bookmark"
     | "link"

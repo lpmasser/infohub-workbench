@@ -9,7 +9,6 @@
   import PaletteIcon from "@lucide/svelte/icons/palette";
   import LayoutIcon from "@lucide/svelte/icons/layout-template";
   import FolderIcon from "@lucide/svelte/icons/folder";
-  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import SlidersIcon from "@lucide/svelte/icons/sliders-horizontal";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
   import { HotkeysPanel } from "$lib/features/hotkey";
@@ -101,7 +100,6 @@
     { id: "theme", label: "Theme", icon: PaletteIcon },
     { id: "layout", label: "Layout", icon: LayoutIcon },
     { id: "files", label: "Files", icon: FolderIcon },
-    { id: "git", label: "Git", icon: GitBranchIcon },
     { id: "misc", label: "Misc", icon: SlidersIcon },
     { id: "hotkeys", label: "Hotkeys", icon: KeyboardIcon },
   ];
@@ -318,7 +316,7 @@
                   update("attachment_folder", e.currentTarget.value);
                 }}
                 class="w-48"
-                placeholder=".assets"
+                placeholder="assets"
                 aria-label="Attachment folder"
                 disabled={editor_settings.store_attachments_with_note}
               />
@@ -431,26 +429,6 @@
                   <Select.Item value="hyphens">Hyphens</Select.Item>
                 </Select.Content>
               </Select.Root>
-            </div>
-          </div>
-        {:else if active_category === "git"}
-          <h2 class="SettingsDialog__content-header">Git</h2>
-
-          <div class="SettingsDialog__section-content">
-            <div class="SettingsDialog__row">
-              <div class="SettingsDialog__label-group">
-                <span class="SettingsDialog__label">Auto-commit</span>
-                <span class="SettingsDialog__description"
-                  >Automatically commit saved changes to Git</span
-                >
-              </div>
-              <Switch.Root
-                aria-label="Auto-commit"
-                checked={editor_settings.git_autocommit_enabled}
-                onCheckedChange={(v: boolean) => {
-                  update("git_autocommit_enabled", v);
-                }}
-              />
             </div>
           </div>
         {:else if active_category === "misc"}

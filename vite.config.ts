@@ -2,8 +2,8 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
-// `pnpm dev:web` serves the browser build and forwards the API to a local
-// InfoHub Web service, so the page and the API share one origin.
+// The dev server forwards the API to a local InfoHub Web service, so the page
+// and the API share one origin as in production.
 const web_api_target = process.env.INFOHUB_WEB_API ?? "http://127.0.0.1:3999";
 
 export default defineConfig({
@@ -25,12 +25,9 @@ export default defineConfig({
     strictPort: true,
     // SvelteKit limits served roots to src; the editor workspace lives beside it.
     fs: { allow: ["packages"] },
-    proxy:
-      process.env.VITE_INFOHUB_TARGET === "web"
-        ? { "/api": { target: web_api_target } }
-        : {},
+    proxy: { "/api": { target: web_api_target } },
     watch: {
-      ignored: ["**/src-tauri/target/**", "**/.pnpm-store/**", "**/.codex/**"],
+      ignored: ["**/.pnpm-store/**", "**/.codex/**"],
     },
   },
   css: {

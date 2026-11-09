@@ -182,7 +182,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
   function apply_saved_note(
     saved_note: OpenNoteState,
     saved_path: NotePath,
-    saved_mtime_ms: number,
+    saved_version: string,
   ) {
     const previous_path = saved_note.meta.path;
     const tab = stores.tab.find_tab_by_path(previous_path);
@@ -203,7 +203,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
         path: saved_path,
         name,
         title: name,
-        mtime_ms: saved_mtime_ms,
+        version: saved_version,
       },
       is_dirty: is_active
         ? source_note.is_dirty
@@ -230,7 +230,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
       saved_note &&
       stores.vault.generation === vault_generation
     ) {
-      apply_saved_note(saved_note, result.saved_path, result.saved_mtime_ms);
+      apply_saved_note(saved_note, result.saved_path, result.saved_version);
     }
   }
 
@@ -255,12 +255,12 @@ export function register_note_actions(input: ActionRegistrationInput) {
     saved_note: OpenNoteState | null;
     dialog: typeof stores.ui.save_note_dialog;
     saved_path: NotePath;
-    saved_mtime_ms: number;
+    saved_version: string;
     source: "manual" | "tab_close";
   }) {
     if (!args.saved_note) return;
     if (
-      !apply_saved_note(args.saved_note, args.saved_path, args.saved_mtime_ms)
+      !apply_saved_note(args.saved_note, args.saved_path, args.saved_version)
     ) {
       return;
     }
@@ -401,10 +401,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
           toast.error("Note no longer exists");
         }
         if (result.status === "not_text") {
-          await registry.execute(
-            ACTION_IDS.shell_open_in_default_app,
-            note_path,
-          );
+          await registry.execute(ACTION_IDS.shell_open_file, note_path);
         }
       },
     });
@@ -508,7 +505,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
         const settings = stores.ui.editor_settings;
         const target_folder = settings.store_attachments_with_note
           ? "(same folder as note)"
-          : settings.attachment_folder || ".assets";
+          : settings.attachment_folder || "assets";
 
         stores.ui.image_paste_dialog = {
           open: true,
@@ -765,7 +762,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
             saved_note,
             dialog,
             saved_path: result.saved_path,
-            saved_mtime_ms: result.saved_mtime_ms,
+            saved_version: result.saved_version,
             source,
           });
         }
@@ -795,7 +792,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
             saved_note,
             dialog,
             saved_path: result.saved_path,
-            saved_mtime_ms: result.saved_mtime_ms,
+            saved_version: result.saved_version,
             source,
           });
         }
@@ -825,7 +822,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
             saved_note,
             dialog,
             saved_path: result.saved_path,
-            saved_mtime_ms: result.saved_mtime_ms,
+            saved_version: result.saved_version,
             source,
           });
         }
@@ -859,137 +856,10 @@ export function register_note_actions(input: ActionRegistrationInput) {
     });
   }
 
-  function register_markdown_cleanup_actions() {
-    registry.register({
-      id: ACTION_IDS.note_cleanup_markdown_request,
-      label: "Clean up legacy Markdown",
-      when: when_vault_open,
-      execute: async () => {
-        stores.ui.markdown_cleanup_dialog = {
-          ...stores.ui.markdown_cleanup_dialog,
-          open: true,
-          is_loading: true,
-          operation_label: "Scanning notes…",
-          error: null,
-          preview: null,
-        };
-        try {
-          const preview = await services.markdown_cleanup.preview();
-          stores.ui.markdown_cleanup_dialog = {
-            ...stores.ui.markdown_cleanup_dialog,
-            is_loading: false,
-            operation_label: "",
-            preview,
-            backup: preview.backup,
-          };
-        } catch (error) {
-          stores.ui.markdown_cleanup_dialog = {
-            ...stores.ui.markdown_cleanup_dialog,
-            is_loading: false,
-            operation_label: "",
-            error: error instanceof Error ? error.message : String(error),
-          };
-        }
-      },
-    });
-    registry.register({
-      id: ACTION_IDS.note_cleanup_markdown_options,
-      label: "Update cleanup preview",
-      execute: async (compact: unknown) => {
-        const dialog = stores.ui.markdown_cleanup_dialog;
-        if (typeof compact !== "boolean" || !dialog.open) return;
-        dialog.compact_simple_lists = compact;
-        dialog.is_loading = true;
-        dialog.operation_label = "Scanning notes…";
-        dialog.error = null;
-        try {
-          dialog.preview = await services.markdown_cleanup.preview({
-            compact_simple_lists: compact,
-          });
-          dialog.backup = dialog.preview.backup;
-        } catch (error) {
-          dialog.error = error instanceof Error ? error.message : String(error);
-        } finally {
-          dialog.is_loading = false;
-          dialog.operation_label = "";
-        }
-      },
-    });
-    registry.register({
-      id: ACTION_IDS.note_cleanup_markdown_apply,
-      label: "Apply Markdown cleanup",
-      execute: async () => {
-        const dialog = stores.ui.markdown_cleanup_dialog;
-        const preview = dialog.preview;
-        if (!preview || dialog.is_loading) return;
-        dialog.is_loading = true;
-        dialog.operation_label = "Applying cleanup…";
-        dialog.error = null;
-        try {
-          const result = await services.markdown_cleanup.apply(preview.id);
-          dialog.applied_count = result.updated_notes.length;
-          dialog.backup = result.backup;
-          dialog.preview = null;
-        } catch (error) {
-          dialog.error = error instanceof Error ? error.message : String(error);
-          dialog.preview = null;
-        } finally {
-          dialog.is_loading = false;
-          dialog.operation_label = "";
-        }
-      },
-    });
-    registry.register({
-      id: ACTION_IDS.note_cleanup_markdown_restore,
-      label: "Restore Markdown cleanup backup",
-      execute: async () => {
-        const dialog = stores.ui.markdown_cleanup_dialog;
-        if (dialog.is_loading) return;
-        dialog.is_loading = true;
-        dialog.operation_label = "Restoring backup…";
-        dialog.error = null;
-        try {
-          const result = await services.markdown_cleanup.restore_latest();
-          dialog.restored_count = result?.restored_notes.length ?? 0;
-          dialog.skipped_restore_count = result?.skipped_note_ids.length ?? 0;
-          dialog.backup =
-            result && result.skipped_note_ids.length > 0 ? result.backup : null;
-        } catch (error) {
-          dialog.error = error instanceof Error ? error.message : String(error);
-        } finally {
-          dialog.is_loading = false;
-          dialog.operation_label = "";
-        }
-      },
-    });
-    registry.register({
-      id: ACTION_IDS.note_cleanup_markdown_cancel,
-      label: "Close Markdown cleanup",
-      execute: () => {
-        services.markdown_cleanup.cancel_preview(
-          stores.ui.markdown_cleanup_dialog.preview?.id,
-        );
-        stores.ui.markdown_cleanup_dialog = {
-          open: false,
-          is_loading: false,
-          operation_label: "",
-          error: null,
-          preview: null,
-          backup: null,
-          compact_simple_lists: true,
-          applied_count: 0,
-          restored_count: 0,
-          skipped_restore_count: 0,
-        };
-      },
-    });
-  }
-
   register_open_actions();
   register_image_actions();
   register_delete_actions();
   register_rename_actions();
   register_save_actions();
   register_star_actions();
-  register_markdown_cleanup_actions();
 }

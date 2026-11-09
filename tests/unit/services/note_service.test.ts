@@ -10,13 +10,14 @@ import {
   as_note_path,
 } from "$lib/shared/types/ids";
 import { create_test_vault } from "../helpers/test_fixtures";
-import {
-  create_mock_index_port,
-  create_mock_notes_port,
-} from "../helpers/mock_ports";
+import { create_mock_notes_port } from "../helpers/mock_ports";
 import type { EditorService } from "$lib/features/editor/application/editor_service";
 import type { AssetsPort, NotesPort } from "$lib/features/note/ports";
-import type { LinkRepairService } from "$lib/features/links/application/link_repair_service";
+import {
+  NoteExistsError,
+  NoteNotTextError,
+  NoteVersionConflictError,
+} from "$lib/features/note/types/note_errors";
 
 function create_deferred<T>() {
   let resolve: (value: T) => void = () => {};
@@ -42,7 +43,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([note_meta]);
@@ -52,8 +53,6 @@ describe("NoteService", () => {
       meta: note_meta,
       markdown: as_markdown_text("# Alpha"),
     });
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -67,7 +66,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -104,7 +102,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/missing.md"),
       name: "missing",
       title: "missing",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
 
@@ -113,8 +111,6 @@ describe("NoteService", () => {
       meta: note_meta,
       markdown: as_markdown_text("# Missing"),
     });
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -128,7 +124,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -156,7 +151,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/stale.md"),
       name: "stale",
       title: "stale",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([stale_meta]);
@@ -165,9 +160,9 @@ describe("NoteService", () => {
     const notes_port = create_mock_notes_port();
     notes_port.read_note = vi
       .fn()
-      .mockRejectedValue(new Error("No such file or directory"));
-
-    const index_port = create_mock_index_port();
+      .mockRejectedValue(
+        Object.assign(new Error("not found"), { name: "NotFoundError" }),
+      );
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -181,7 +176,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -200,18 +194,12 @@ describe("NoteService", () => {
     }
 
     expect(result).toEqual({ status: "not_found" });
-    expect(index_port._calls.remove_note).toEqual([
-      {
-        vault_id: vault_id,
-        note_id: as_note_path("docs/stale.md"),
-      },
-    ]);
     expect(notes_store.notes).toEqual([]);
     expect(notes_store.recent_notes).toEqual([]);
     expect(op_store.get("note.open:docs/stale.md").status).toBe("success");
   });
 
-  it("keeps index untouched for non-search not-found open failures", async () => {
+  it("keeps the store untouched when an open fails for another reason", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();
     const editor_store = new EditorStore();
@@ -223,7 +211,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/missing.md"),
       name: "missing",
       title: "missing",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([stale_meta]);
@@ -232,8 +220,6 @@ describe("NoteService", () => {
     notes_port.read_note = vi
       .fn()
       .mockRejectedValue(new Error("No such file or directory"));
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -247,7 +233,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -260,7 +245,6 @@ describe("NoteService", () => {
     const result = await service.open_note("docs/missing.md", false);
 
     expect(result.status).toBe("failed");
-    expect(index_port._calls.remove_note).toEqual([]);
     expect(notes_store.notes).toEqual([stale_meta]);
     expect(op_store.get("note.open:docs/missing.md").status).toBe("error");
   });
@@ -272,12 +256,9 @@ describe("NoteService", () => {
     const notes_port = create_mock_notes_port();
     notes_port.read_note = vi
       .fn()
-      .mockRejectedValue(
-        new Error("tauri invoke failed: read_note: file_not_text"),
-      );
+      .mockRejectedValue(new NoteNotTextError("docs/image.png"));
     const service = new NoteService(
       notes_port,
-      create_mock_index_port(),
       {
         resolve_asset_url: vi.fn(),
         write_image_asset: vi.fn(),
@@ -309,7 +290,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     editor_store.set_open_note({
@@ -323,12 +304,11 @@ describe("NoteService", () => {
       path: as_note_path("docs/other.md"),
       name: "other",
       title: "other",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     });
 
     const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -342,7 +322,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -369,7 +348,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     editor_store.set_open_note({
@@ -385,7 +364,6 @@ describe("NoteService", () => {
       markdown: as_markdown_text("# refreshed"),
     });
     notes_port.read_note = read_note;
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -398,7 +376,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -433,14 +410,13 @@ describe("NoteService", () => {
       path: as_note_path("docs/remove-me.md"),
       name: "remove-me",
       title: "remove-me",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([note_meta]);
     notes_store.add_recent_note(note_meta);
 
     const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -454,7 +430,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -462,7 +437,6 @@ describe("NoteService", () => {
       op_store,
       editor_service,
       () => 1,
-      null,
     );
 
     await service.delete_note(note_meta);
@@ -483,14 +457,13 @@ describe("NoteService", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([note_meta]);
     notes_store.add_recent_note(note_meta);
 
     const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -504,7 +477,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -527,65 +499,6 @@ describe("NoteService", () => {
     ]);
   });
 
-  it("calls link repair with correct path map when renaming a note", async () => {
-    const vault_store = new VaultStore();
-    const notes_store = new NotesStore();
-    const editor_store = new EditorStore();
-    const op_store = new OpStore();
-    vault_store.set_vault(create_test_vault());
-
-    const note_meta = {
-      id: as_note_path("docs/old.md"),
-      path: as_note_path("docs/old.md"),
-      name: "old",
-      title: "old",
-      mtime_ms: 0,
-      size_bytes: 0,
-    };
-    notes_store.set_notes([note_meta]);
-
-    const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
-    const assets_port = {
-      resolve_asset_url: vi.fn(),
-      write_image_asset: vi.fn(),
-    } as unknown as AssetsPort;
-    const editor_service = {
-      flush: vi.fn().mockReturnValue(null),
-      mark_clean: vi.fn(),
-      rename_buffer: vi.fn(),
-    } as unknown as EditorService;
-
-    const repair_links = vi.fn().mockResolvedValue({
-      scanned: 1,
-      rewritten: 1,
-      failed: [],
-    });
-    const link_repair = { repair_links } as unknown as LinkRepairService;
-
-    const service = new NoteService(
-      notes_port,
-      index_port,
-      assets_port,
-      vault_store,
-      notes_store,
-      editor_store,
-      op_store,
-      editor_service,
-      () => 1,
-      link_repair,
-    );
-
-    await service.rename_note(note_meta, as_note_path("docs/new.md"), false);
-
-    const vault_id = vault_store.vault?.id;
-    expect(repair_links).toHaveBeenCalledWith(
-      vault_id,
-      new Map([["docs/old.md", "docs/new.md"]]),
-      expect.any(Function),
-    );
-  });
-
   it("retries read when create_if_missing races with existing note", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();
@@ -599,7 +512,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/has spaces.md"),
       name: "has spaces",
       title: "has spaces",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([note_meta]);
@@ -608,9 +521,7 @@ describe("NoteService", () => {
     const read_note = vi
       .fn()
       .mockRejectedValueOnce(
-        new Error(
-          "tauri invoke failed: read_note: No such file or directory (os error 2)",
-        ),
+        Object.assign(new Error("not found"), { name: "NotFoundError" }),
       )
       .mockResolvedValueOnce({
         meta: note_meta,
@@ -619,11 +530,7 @@ describe("NoteService", () => {
     notes_port.read_note = read_note;
     notes_port.create_note = vi
       .fn()
-      .mockRejectedValueOnce(
-        new Error("tauri invoke failed: create_note: note already exists"),
-      );
-
-    const index_port = create_mock_index_port();
+      .mockRejectedValueOnce(new NoteExistsError("docs/has spaces.md"));
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -637,7 +544,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -674,7 +580,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/already-there.md"),
       name: "already-there",
       title: "already-there",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
 
@@ -686,8 +592,6 @@ describe("NoteService", () => {
     const create_note = vi.fn().mockResolvedValue(note_meta);
     notes_port.read_note = read_note;
     notes_port.create_note = create_note;
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -701,7 +605,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -734,7 +637,7 @@ describe("NoteService", () => {
         path: as_note_path("docs/alpha.md"),
         name: "alpha",
         title: "alpha",
-        mtime_ms: 1_700_000_000_000,
+        version: "v-before",
         size_bytes: 0,
       },
       markdown: as_markdown_text("# Alpha"),
@@ -742,10 +645,9 @@ describe("NoteService", () => {
       is_dirty: true,
     });
 
-    const disk_mtime = 1_700_000_010_000;
+    const saved_at = 1_700_000_010_000;
     const notes_port = create_mock_notes_port();
-    notes_port.write_note = vi.fn().mockResolvedValue(disk_mtime);
-    const index_port = create_mock_index_port();
+    notes_port.write_note = vi.fn().mockResolvedValue("v-after");
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -758,22 +660,22 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
       editor_store,
       op_store,
       editor_service,
-      () => disk_mtime,
+      () => saved_at,
     );
 
     await service.save_note(null, true);
 
-    expect(editor_store.last_saved_at).toBe(disk_mtime);
+    expect(editor_store.last_saved_at).toBe(saved_at);
+    expect(editor_store.open_note?.meta.version).toBe("v-after");
   });
 
-  it("returns conflict when write_note rejects with mtime_mismatch", async () => {
+  it("returns conflict when the server version moved on", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();
     const editor_store = new EditorStore();
@@ -786,7 +688,7 @@ describe("NoteService", () => {
         path: as_note_path("docs/alpha.md"),
         name: "alpha",
         title: "alpha",
-        mtime_ms: 1_700_000_000_000,
+        version: "v-before",
         size_bytes: 0,
       },
       markdown: as_markdown_text("# Alpha"),
@@ -797,11 +699,7 @@ describe("NoteService", () => {
     const notes_port = create_mock_notes_port();
     notes_port.write_note = vi
       .fn()
-      // The exact shape tauri_invoke rejects with.
-      .mockRejectedValue(
-        new Error("tauri invoke failed: write_note: conflict:mtime_mismatch"),
-      );
-    const index_port = create_mock_index_port();
+      .mockRejectedValue(new NoteVersionConflictError("docs/alpha.md"));
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -814,7 +712,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -844,7 +741,7 @@ describe("NoteService", () => {
         path: as_note_path("draft:1:Untitled-1"),
         name: "Untitled-1",
         title: "Untitled-1",
-        mtime_ms: 0,
+        version: null,
         size_bytes: 0,
       },
       markdown: as_markdown_text("draft"),
@@ -853,7 +750,6 @@ describe("NoteService", () => {
     });
 
     const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -871,7 +767,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -908,7 +803,7 @@ describe("NoteService", () => {
     });
     expect(result.status).toBe("saved");
     if (result.status === "saved") {
-      expect(result.saved_mtime_ms).toBe(editor_store.open_note?.meta.mtime_ms);
+      expect(result.saved_version).toBe(editor_store.open_note?.meta.version);
     }
     expect(op_store.get("note.save").status).toBe("success");
     expect(notes_store.recent_notes[0]?.id).toBe(
@@ -925,7 +820,6 @@ describe("NoteService", () => {
     vault_store.set_vault(create_test_vault());
 
     const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
     const write_image_asset = vi
       .fn()
       .mockResolvedValue(as_asset_path("docs/.assets/alpha-1.png"));
@@ -942,7 +836,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -982,7 +875,7 @@ describe("NoteService", () => {
         path: as_note_path("docs/alpha.md"),
         name: "alpha",
         title: "alpha",
-        mtime_ms: 0,
+        version: null,
         size_bytes: 0,
       },
       markdown: as_markdown_text("# Alpha"),
@@ -997,8 +890,6 @@ describe("NoteService", () => {
       .fn()
       .mockImplementationOnce(() => first_write.promise)
       .mockImplementationOnce(() => second_write.promise);
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -1011,7 +902,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1035,7 +925,7 @@ describe("NoteService", () => {
     expect(op_store.get("note.save").status).toBe("success");
   });
 
-  it("maps backend rename already-exists errors to conflict", async () => {
+  it("maps rename onto an existing note to conflict", async () => {
     const vault_store = new VaultStore();
     const notes_store = new NotesStore();
     const editor_store = new EditorStore();
@@ -1047,7 +937,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([note_meta]);
@@ -1055,9 +945,7 @@ describe("NoteService", () => {
     const notes_port = create_mock_notes_port();
     notes_port.rename_note = vi
       .fn()
-      .mockRejectedValue(new Error("tauri invoke failed: note already exists"));
-
-    const index_port = create_mock_index_port();
+      .mockRejectedValue(new NoteExistsError("docs/target.md"));
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -1070,7 +958,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1102,7 +989,7 @@ describe("NoteService", () => {
         path: as_note_path("draft:1:Untitled-1"),
         name: "Untitled-1",
         title: "Untitled-1",
-        mtime_ms: 0,
+        version: null,
         size_bytes: 0,
       },
       markdown: as_markdown_text("draft"),
@@ -1113,9 +1000,7 @@ describe("NoteService", () => {
     const notes_port = create_mock_notes_port();
     notes_port.create_note = vi
       .fn()
-      .mockRejectedValue(new Error("tauri invoke failed: note already exists"));
-
-    const index_port = create_mock_index_port();
+      .mockRejectedValue(new NoteExistsError("docs/target.md"));
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -1128,7 +1013,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1157,7 +1041,7 @@ describe("NoteService", () => {
       path: as_note_path("docs/new-from-link.md"),
       name: "new-from-link",
       title: "new-from-link",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
 
@@ -1170,8 +1054,6 @@ describe("NoteService", () => {
     notes_port.read_note = vi.fn().mockRejectedValueOnce(dom_error);
     const create_note = vi.fn().mockResolvedValue(note_meta);
     notes_port.create_note = create_note;
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -1184,7 +1066,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1213,8 +1094,6 @@ describe("NoteService", () => {
       .mockRejectedValue(new Error("permission denied"));
     const create_note = vi.fn();
     notes_port.create_note = create_note;
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -1227,7 +1106,6 @@ describe("NoteService", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1257,7 +1135,7 @@ describe("NoteService rename case-insensitive handling", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
     notes_store.set_notes([note_meta]);
@@ -1265,8 +1143,6 @@ describe("NoteService rename case-insensitive handling", () => {
     const notes_port = create_mock_notes_port();
     const rename_note = vi.fn().mockResolvedValue(undefined);
     notes_port.rename_note = rename_note;
-
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -1280,7 +1156,6 @@ describe("NoteService rename case-insensitive handling", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1313,7 +1188,7 @@ describe("NoteService rename case-insensitive handling", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
 
@@ -1322,14 +1197,13 @@ describe("NoteService rename case-insensitive handling", () => {
       path: as_note_path("docs/beta.md"),
       name: "beta",
       title: "beta",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     };
 
     notes_store.set_notes([alpha_note, beta_note]);
 
     const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
     const assets_port = {
       resolve_asset_url: vi.fn(),
       write_image_asset: vi.fn(),
@@ -1343,7 +1217,6 @@ describe("NoteService rename case-insensitive handling", () => {
 
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1371,7 +1244,6 @@ describe("NoteService.save_pasted_image", () => {
     const editor_store = new EditorStore();
     const op_store = new OpStore();
     const notes_port = create_mock_notes_port();
-    const index_port = create_mock_index_port();
     const write_image_asset = vi
       .fn()
       .mockResolvedValue(as_asset_path("result.png"));
@@ -1386,7 +1258,6 @@ describe("NoteService.save_pasted_image", () => {
     } as unknown as EditorService;
     const service = new NoteService(
       notes_port,
-      index_port,
       assets_port,
       vault_store,
       notes_store,
@@ -1451,7 +1322,7 @@ describe("NoteService save completion", () => {
       path,
       name: "alpha",
       title: "alpha",
-      mtime_ms: 10,
+      version: "v10",
       size_bytes: 0,
     };
     editor_store.set_open_note({
@@ -1469,7 +1340,7 @@ describe("NoteService save completion", () => {
       mark_clean,
       rename_buffer,
     } as unknown as EditorService;
-    const write = create_deferred<number>();
+    const write = create_deferred<string>();
     const notes_port = create_mock_notes_port();
     notes_port.write_note = vi.fn(() => write.promise);
     notes_port.create_note = vi.fn<NotesPort["create_note"]>(
@@ -1477,12 +1348,11 @@ describe("NoteService save completion", () => {
         ...meta,
         id: target,
         path: target,
-        mtime_ms: await write.promise,
+        version: await write.promise,
       }),
     );
     const service = new NoteService(
       notes_port,
-      create_mock_index_port(),
       {
         resolve_asset_url: vi.fn(),
         write_image_asset: vi.fn(),
@@ -1510,14 +1380,15 @@ describe("NoteService save completion", () => {
     };
   }
 
-  it("returns the actual mtime when writing inactive note content", async () => {
+  it("returns the new version when writing inactive note content", async () => {
     const pending = create_pending_save();
     const write = pending.service.write_note_content(
       as_note_path("alpha.md"),
       as_markdown_text("inactive edit"),
+      "v10",
     );
-    pending.write.resolve(42);
-    expect(await write).toBe(42);
+    pending.write.resolve("v42");
+    expect(await write).toBe("v42");
   });
 
   it("reports no write when inactive note content has no active vault", async () => {
@@ -1529,37 +1400,38 @@ describe("NoteService save completion", () => {
       await pending.service.write_note_content(
         as_note_path("alpha.md"),
         as_markdown_text("inactive edit"),
+        "v10",
       ),
     ).toBeUndefined();
     expect(write_note).not.toHaveBeenCalled();
   });
 
-  it("keeps later live edits dirty and updates the saved file mtime", async () => {
+  it("keeps later live edits dirty and updates the saved version", async () => {
     const pending = create_pending_save();
     const save = pending.service.save_note(null, false);
     pending.type_text("typed while saving");
-    pending.write.resolve(20);
+    pending.write.resolve("v20");
     await save;
     expect(pending.editor_store.open_note).toMatchObject({
       markdown: "typed while saving",
       is_dirty: true,
-      meta: { mtime_ms: 20 },
+      meta: { version: "v20" },
     });
     expect(pending.mark_clean).toHaveBeenCalledWith("alpha.md", "saved text");
   });
 
-  it("uses the preceding queued write mtime and still rejects external changes", async () => {
+  it("uses the preceding queued write version and still rejects external changes", async () => {
     const pending = create_pending_save();
-    let disk_mtime = 10;
+    let disk_version = 10;
     const written: string[] = [];
     const first_write = create_deferred<void>();
     pending.notes_port.write_note = vi.fn<NotesPort["write_note"]>(
-      async (_vault, _path, markdown, expected_mtime) => {
+      async (_vault, path, markdown, base_version) => {
         if (written.length === 0) await first_write.promise;
-        if (expected_mtime !== disk_mtime)
-          throw new Error("conflict:mtime_mismatch");
+        if (base_version !== `v${String(disk_version)}`)
+          throw new NoteVersionConflictError(path);
         written.push(markdown);
-        return ++disk_mtime;
+        return `v${String(++disk_version)}`;
       },
     );
     const first_save = pending.service.save_note(null, false);
@@ -1569,7 +1441,7 @@ describe("NoteService save completion", () => {
     expect((await first_save).status).toBe("saved");
     expect((await second_save).status).toBe("saved");
     expect(written).toEqual(["saved text", "second save"]);
-    disk_mtime += 1;
+    disk_version += 1;
     pending.type_text("third save");
     expect((await pending.service.save_note(null, false)).status).toBe(
       "conflict",
@@ -1580,7 +1452,7 @@ describe("NoteService save completion", () => {
   it("marks an unchanged live document clean", async () => {
     const pending = create_pending_save();
     const save = pending.service.save_note(null, false);
-    pending.write.resolve(20);
+    pending.write.resolve("v20");
     await save;
     expect(pending.editor_store.open_note?.is_dirty).toBe(false);
     expect(pending.mark_clean).toHaveBeenCalledOnce();
@@ -1610,10 +1482,10 @@ describe("NoteService save completion", () => {
               : original.meta,
         });
       }
-      pending.write.resolve(20);
+      pending.write.resolve("v20");
       await save;
       expect(pending.editor_store.open_note?.is_dirty).toBe(true);
-      expect(pending.editor_store.open_note?.meta.mtime_ms).toBe(10);
+      expect(pending.editor_store.open_note?.meta.version).toBe("v10");
       expect(pending.mark_clean).not.toHaveBeenCalled();
       expect(pending.flush).toHaveBeenCalledOnce();
     },
@@ -1626,7 +1498,7 @@ describe("NoteService save completion", () => {
       note_id: as_note_path("other.md"),
       markdown: as_markdown_text("saved text"),
     });
-    pending.write.resolve(20);
+    pending.write.resolve("v20");
     await save;
     expect(pending.editor_store.open_note?.is_dirty).toBe(true);
     expect(pending.mark_clean).not.toHaveBeenCalled();
@@ -1637,7 +1509,7 @@ describe("NoteService save completion", () => {
     const save = pending.service.save_note(as_note_path("named.md"), false);
     pending.vault_store.clear();
     pending.vault_store.set_vault(create_test_vault());
-    pending.write.resolve(20);
+    pending.write.resolve("v20");
     await save;
     expect(pending.notes_store.notes).toEqual([]);
     expect(pending.rename_buffer).not.toHaveBeenCalled();
@@ -1647,12 +1519,12 @@ describe("NoteService save completion", () => {
     const pending = create_pending_save(true);
     const save = pending.service.save_note(as_note_path("named.md"), false);
     pending.type_text("later draft edit");
-    pending.write.resolve(20);
+    pending.write.resolve("v20");
     await save;
     expect(pending.editor_store.open_note).toMatchObject({
       markdown: "later draft edit",
       is_dirty: true,
-      meta: { path: "named.md", mtime_ms: 20 },
+      meta: { path: "named.md", version: "v20" },
     });
     expect(pending.rename_buffer).toHaveBeenCalledWith(
       "draft:1:Untitled-1",
@@ -1671,7 +1543,7 @@ describe("NoteService save completion", () => {
       buffer_id: "other-draft",
       markdown: as_markdown_text("other tab"),
     });
-    pending.write.resolve(20);
+    pending.write.resolve("v20");
     await save;
     expect(pending.editor_store.open_note?.meta.path).toBe(
       "draft:1:Untitled-1",
@@ -1694,7 +1566,7 @@ it("external refresh keeps edits made while the disk read is pending, and reload
     path,
     name: "文档",
     title: "文档",
-    mtime_ms: 1,
+    version: "v1",
     size_bytes: 1,
   };
   editor.set_open_note({
@@ -1710,7 +1582,6 @@ it("external refresh keeps edits made while the disk read is pending, and reload
   let dirty = false;
   const service = new NoteService(
     notes,
-    create_mock_index_port(),
     {} as AssetsPort,
     vault,
     new NotesStore(),
@@ -1722,7 +1593,7 @@ it("external refresh keeps edits made while the disk read is pending, and reload
   const refresh = service.refresh_external_note(path);
   dirty = true;
   pending.resolve({
-    meta: { ...meta, mtime_ms: 2 },
+    meta: { ...meta, version: "v2" },
     markdown: as_markdown_text("external"),
   });
   expect(await refresh).toBe(true);

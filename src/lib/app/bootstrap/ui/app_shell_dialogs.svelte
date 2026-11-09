@@ -1,6 +1,5 @@
 <script lang="ts">
   import {
-    VaultDialog,
     SourceDialog,
     VaultDashboardDialog,
     ConfirmVaultSwitchDialog,
@@ -11,22 +10,14 @@
     RenameNoteDialog,
     SaveNoteDialog,
     ImagePasteDialog,
-    LegacyMarkdownCleanupDialog,
   } from "$lib/features/note";
-  import {
-    DeleteFolderDialog,
-    RenameFolderDialog,
-    CreateFolderDialog,
-    FiletreeMoveConflictDialog,
-  } from "$lib/features/folder";
+  import { FiletreeMoveConflictDialog } from "$lib/features/folder";
   import { SettingsDialog } from "$lib/features/settings";
   import { Omnibar } from "$lib/features/search";
   import { TabCloseConfirmDialog } from "$lib/features/tab";
-  import { VersionHistoryDialog, CheckpointDialog } from "$lib/features/git";
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { is_web_build } from "$lib/app/runtime_target";
   import { ACTION_IDS } from "$lib/app";
   import type { OmnibarItem } from "$lib/shared/types/search";
   import type { OmnibarScope } from "$lib/shared/types/search";
@@ -37,12 +28,6 @@
   import type { VaultId } from "$lib/shared/types/ids";
   import type { HotkeyBinding } from "$lib/features/hotkey";
   import type { Theme } from "$lib/shared/types/theme";
-
-  type Props = {
-    hide_choose_vault_button?: boolean;
-  };
-
-  let { hide_choose_vault_button = false }: Props = $props();
 
   const { stores, action_registry } = use_app_context();
 
@@ -59,12 +44,6 @@
   const delete_note_error = $derived(stores.op.get("note.delete").error);
   const rename_note_error = $derived(stores.op.get("note.rename").error);
   const save_note_error = $derived(stores.op.get("note.save").error);
-  const create_folder_error = $derived(stores.op.get("folder.create").error);
-  const delete_folder_error = $derived(
-    stores.op.get("folder.delete").error ??
-      stores.op.get("folder.delete_stats").error,
-  );
-  const rename_folder_error = $derived(stores.op.get("folder.rename").error);
   const settings_error = $derived(
     stores.op.get("settings.save").error ??
       stores.op.get("settings.load").error,
@@ -81,29 +60,9 @@
       JSON.stringify(stores.ui.hotkey_overrides);
     return editor_changed || hotkey_changed || stores.ui.theme_has_draft;
   });
-
-  const delete_folder_status = $derived.by(() => {
-    const delete_op_state = stores.op.get("folder.delete").status;
-    if (delete_op_state === "pending") return "deleting";
-    if (delete_op_state === "error") return "error";
-
-    const delete_stats_state = stores.op.get("folder.delete_stats").status;
-    if (delete_stats_state === "pending") return "fetching_stats";
-    if (delete_stats_state === "error") return "error";
-
-    return stores.ui.delete_folder_dialog.status;
-  });
-
-  const rename_folder_status = $derived.by(() => {
-    const op_state = stores.op.get("folder.rename").status;
-    if (op_state === "pending") return "renaming";
-    if (op_state === "error") return "error";
-    if (stores.ui.rename_folder_dialog.open) return "confirming";
-    return "idle";
-  });
 </script>
 
-{#if has_vault && is_web_build}
+{#if has_vault}
   <SourceDialog
     open={stores.ui.change_vault.open}
     on_open_change={(open) => {
@@ -118,33 +77,6 @@
     on_select_source={(vault_id: VaultId) =>
       void action_registry.execute(ACTION_IDS.vault_select, vault_id)}
   />
-{:else if has_vault}
-  <VaultDialog
-    open={stores.ui.change_vault.open}
-    on_open_change={(open) => {
-      if (!open) {
-        void action_registry.execute(ACTION_IDS.vault_close_change);
-      }
-    }}
-    recent_vaults={stores.vault.recent_vaults}
-    pinned_vault_ids={stores.vault.pinned_vault_ids}
-    current_vault_id={stores.vault.vault?.id ?? null}
-    is_loading={stores.ui.change_vault.is_loading}
-    error={stores.ui.change_vault.error}
-    on_choose_vault_dir={() =>
-      void action_registry.execute(ACTION_IDS.vault_choose)}
-    on_select_vault={(vault_id: VaultId) =>
-      void action_registry.execute(ACTION_IDS.vault_select, vault_id)}
-    on_toggle_pin_vault={(vault_id: VaultId) =>
-      void action_registry.execute(ACTION_IDS.vault_toggle_pin, vault_id)}
-    on_remove_vault={(vault_id: VaultId) =>
-      void action_registry.execute(
-        ACTION_IDS.vault_remove_from_registry,
-        vault_id,
-      )}
-    {hide_choose_vault_button}
-  />
-
   <VaultDashboardDialog
     open={vault_dashboard_open}
     vault_name={stores.vault.vault?.name ?? null}
@@ -222,35 +154,6 @@
   on_retry={() => void action_registry.execute(ACTION_IDS.note_retry_rename)}
 />
 
-<DeleteFolderDialog
-  open={stores.ui.delete_folder_dialog.open}
-  folder_path={stores.ui.delete_folder_dialog.folder_path}
-  affected_note_count={stores.ui.delete_folder_dialog.affected_note_count}
-  affected_folder_count={stores.ui.delete_folder_dialog.affected_folder_count}
-  status={delete_folder_status}
-  error={delete_folder_error}
-  on_confirm={() =>
-    void action_registry.execute(ACTION_IDS.folder_confirm_delete)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.folder_cancel_delete)}
-  on_retry={() => void action_registry.execute(ACTION_IDS.folder_retry_delete)}
-/>
-
-<RenameFolderDialog
-  open={stores.ui.rename_folder_dialog.open}
-  folder_path={stores.ui.rename_folder_dialog.folder_path}
-  new_name={stores.ui.rename_folder_dialog.new_name}
-  status={rename_folder_status}
-  error={rename_folder_error}
-  on_update_name={(name: string) =>
-    void action_registry.execute(ACTION_IDS.folder_update_rename_name, name)}
-  on_confirm={() =>
-    void action_registry.execute(ACTION_IDS.folder_confirm_rename)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.folder_cancel_rename)}
-  on_retry={() => void action_registry.execute(ACTION_IDS.folder_retry_rename)}
-/>
-
 <FiletreeMoveConflictDialog
   open={stores.ui.filetree_move_conflict_dialog.open}
   target_folder={stores.ui.filetree_move_conflict_dialog.target_folder}
@@ -321,20 +224,6 @@
     void action_registry.execute(ACTION_IDS.theme_delete, id)}
   on_theme_update={(theme: Theme) =>
     void action_registry.execute(ACTION_IDS.theme_update, theme)}
-/>
-
-<CreateFolderDialog
-  open={stores.ui.create_folder_dialog.open}
-  parent_path={stores.ui.create_folder_dialog.parent_path}
-  folder_name={stores.ui.create_folder_dialog.folder_name}
-  is_creating={stores.op.is_pending("folder.create")}
-  error={create_folder_error}
-  on_folder_name_change={(name: string) =>
-    void action_registry.execute(ACTION_IDS.folder_update_create_name, name)}
-  on_confirm={() =>
-    void action_registry.execute(ACTION_IDS.folder_confirm_create)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.folder_cancel_create)}
 />
 
 <Omnibar
@@ -414,66 +303,10 @@
   }}
 />
 
-<VersionHistoryDialog
-  open={stores.ui.version_history_dialog.open}
-  note_path={stores.ui.version_history_dialog.note_path}
-  commits={stores.git.history}
-  is_loading={stores.git.is_loading_history}
-  is_restoring={stores.op.is_pending("git.restore")}
-  selected_commit={stores.git.selected_commit}
-  diff={stores.git.selected_diff}
-  file_content={stores.git.selected_file_content}
-  on_close={() => void action_registry.execute(ACTION_IDS.git_close_history)}
-  on_select_commit={(commit) =>
-    void action_registry.execute(ACTION_IDS.git_select_commit, commit)}
-  on_restore={(commit) =>
-    void action_registry.execute(ACTION_IDS.git_restore_version, commit)}
-/>
-
-<CheckpointDialog
-  open={stores.ui.checkpoint_dialog.open}
-  description={stores.ui.checkpoint_dialog.description}
-  is_loading={stores.git.sync_status === "committing"}
-  on_update_description={(value) =>
-    void action_registry.execute(
-      ACTION_IDS.git_update_checkpoint_description,
-      value,
-    )}
-  on_confirm={() =>
-    void action_registry.execute(ACTION_IDS.git_confirm_checkpoint)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.git_cancel_checkpoint)}
-/>
-
 <HelpDialog
   open={stores.ui.help_dialog.open}
   hotkeys_config={stores.ui.hotkeys_config}
   on_close={() => void action_registry.execute(ACTION_IDS.help_close)}
-/>
-
-<LegacyMarkdownCleanupDialog
-  open={stores.ui.markdown_cleanup_dialog.open}
-  is_loading={stores.ui.markdown_cleanup_dialog.is_loading}
-  operation_label={stores.ui.markdown_cleanup_dialog.operation_label}
-  error={stores.ui.markdown_cleanup_dialog.error}
-  preview={stores.ui.markdown_cleanup_dialog.preview}
-  backup={stores.ui.markdown_cleanup_dialog.backup}
-  compact_simple_lists={stores.ui.markdown_cleanup_dialog.compact_simple_lists}
-  applied_count={stores.ui.markdown_cleanup_dialog.applied_count}
-  restored_count={stores.ui.markdown_cleanup_dialog.restored_count}
-  skipped_restore_count={stores.ui.markdown_cleanup_dialog
-    .skipped_restore_count}
-  on_options={(compact) =>
-    void action_registry.execute(
-      ACTION_IDS.note_cleanup_markdown_options,
-      compact,
-    )}
-  on_apply={() =>
-    void action_registry.execute(ACTION_IDS.note_cleanup_markdown_apply)}
-  on_restore={() =>
-    void action_registry.execute(ACTION_IDS.note_cleanup_markdown_restore)}
-  on_cancel={() =>
-    void action_registry.execute(ACTION_IDS.note_cleanup_markdown_cancel)}
 />
 
 <HotkeyRecorderDialog

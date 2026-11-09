@@ -10,7 +10,6 @@ import type { Ports } from "$lib/app/di/app_ports";
 import { create_codemirror_editor_port } from "$lib/features/editor";
 import { create_test_clipboard_adapter } from "./test_clipboard_adapter";
 import { create_test_shell_adapter } from "./test_shell_adapter";
-import { create_test_git_adapter } from "./test_git_adapter";
 import { create_test_watcher_adapter } from "./test_watcher_adapter";
 
 export function create_test_ports(): Ports {
@@ -48,7 +47,6 @@ export function create_test_ports(): Ports {
     }),
     clipboard,
     shell: create_test_shell_adapter(),
-    git: create_test_git_adapter(),
     watcher: create_test_watcher_adapter(),
   };
 }

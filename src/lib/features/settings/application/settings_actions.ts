@@ -164,7 +164,6 @@ export function register_settings_actions(input: ActionRegistrationInput) {
   });
 }
 
-// Shared with document windows, which have no vault but zoom the same way.
 export function register_editor_zoom_actions(input: {
   registry: ActionRegistry;
   stores: { ui: UIStore };

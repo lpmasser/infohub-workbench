@@ -9,7 +9,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import {
   as_markdown_text,
   as_note_path,
@@ -31,7 +30,7 @@ function create_draft_open_note(
       path: as_note_path(path),
       name: title,
       title,
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text("draft"),
@@ -51,7 +50,6 @@ function create_vault_actions_harness() {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
   };
 
   const services = {
@@ -79,7 +77,7 @@ function create_vault_actions_harness() {
         status: "opened",
         selected_folder_path: "docs",
       }),
-      write_note_content: vi.fn().mockResolvedValue(123),
+      write_note_content: vi.fn().mockResolvedValue("v123"),
       create_new_note: vi.fn(),
     },
     folder: {},
@@ -131,12 +129,6 @@ function create_vault_actions_harness() {
   registry.register({
     id: ACTION_IDS.folder_refresh_tree,
     label: "Refresh Folder Tree",
-    execute: async () => {},
-  });
-
-  registry.register({
-    id: ACTION_IDS.git_check_repo,
-    label: "Check Git Repo",
     execute: async () => {},
   });
 
@@ -276,7 +268,7 @@ describe("register_vault_actions", () => {
         markdown: as_markdown_text("later typing"),
         is_dirty: true,
       });
-      return Promise.resolve(456);
+      return Promise.resolve("v456");
     });
 
     await registry.execute(ACTION_IDS.vault_select, as_vault_id("vault-next"));
@@ -286,7 +278,7 @@ describe("register_vault_actions", () => {
     expect(stores.tab.get_cached_note(note.path)).toMatchObject({
       markdown: "later typing",
       is_dirty: true,
-      meta: { mtime_ms: 456 },
+      meta: { version: "v456" },
     });
     expect(services.editor.mark_clean).toHaveBeenCalledWith(
       note.path,
@@ -313,7 +305,7 @@ describe("register_vault_actions", () => {
         as_markdown_text("typed after active save"),
       );
       stores.editor.set_dirty(active.id, true);
-      return Promise.resolve(456);
+      return Promise.resolve("v456");
     });
 
     await registry.execute(ACTION_IDS.vault_select, as_vault_id("vault-next"));
@@ -542,6 +534,7 @@ describe("register_vault_actions", () => {
     expect(services.note.write_note_content).toHaveBeenCalledWith(
       dirty_note.path,
       as_markdown_text("content"),
+      dirty_note.version,
     );
     expect(services.vault.change_vault_by_id).toHaveBeenCalledWith(
       as_vault_id("vault-next"),

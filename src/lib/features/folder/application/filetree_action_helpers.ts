@@ -133,16 +133,6 @@ export function transform_filetree_paths(
   };
 }
 
-export function remove_expanded_paths(
-  input: ActionRegistrationInput,
-  folder_path: string,
-) {
-  const prefix = `${folder_path}/`;
-  transform_filetree_paths(input, (path) =>
-    path === folder_path || path.startsWith(prefix) ? null : path,
-  );
-}
-
 export function remap_path(
   path: string,
   old_path: string,
@@ -202,22 +192,6 @@ export function remap_ui_paths_after_move(
 
   if (input.stores.ui.filetree_revealed_note_path === old_path) {
     input.stores.ui.filetree_revealed_note_path = new_path;
-  }
-}
-
-export function clear_filetree_scope_if_removed(
-  input: ActionRegistrationInput,
-  removed_path: string,
-) {
-  const scoped_root_path = input.stores.ui.filetree_scoped_root_path;
-  if (!scoped_root_path) {
-    return;
-  }
-  if (
-    scoped_root_path === removed_path ||
-    scoped_root_path.startsWith(`${removed_path}/`)
-  ) {
-    input.stores.ui.filetree_scoped_root_path = null;
   }
 }
 

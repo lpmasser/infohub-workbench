@@ -62,7 +62,7 @@ export function create_autosave_reactor(
                   ...note_snapshot.meta,
                   path: result.saved_path,
                   id: result.saved_path,
-                  mtime_ms: result.saved_mtime_ms,
+                  version: result.saved_version,
                 },
               },
               latest_note ?? undefined,

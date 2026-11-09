@@ -41,34 +41,6 @@ export function create_test_search_adapter(): SearchPort {
       return Promise.resolve([]);
     },
 
-    get_note_links_snapshot(_vault_id: VaultId, _note_path: string) {
-      return Promise.resolve({
-        backlinks: [],
-        outlinks: [],
-        orphan_links: [],
-      });
-    },
-
-    extract_local_note_links(
-      _vault_id: VaultId,
-      _note_path: string,
-      _markdown: string,
-    ) {
-      return Promise.resolve({
-        outlink_paths: [],
-        external_links: [],
-      });
-    },
-
-    rewrite_note_links(
-      markdown: string,
-      _old_source_path: string,
-      _new_source_path: string,
-      _target_map: Record<string, string>,
-    ) {
-      return Promise.resolve({ markdown, changed: false });
-    },
-
     resolve_note_link(_source_path: string, raw_target: string) {
       const cleaned = raw_target.replace(/^\//, "");
       if (!cleaned) return Promise.resolve(null);

@@ -2,12 +2,7 @@ export type HotkeyKey = string;
 
 export type HotkeyPhase = "capture" | "bubble";
 
-export type HotkeyCategory =
-  | "general"
-  | "navigation"
-  | "tabs"
-  | "git"
-  | "editing";
+export type HotkeyCategory = "general" | "navigation" | "tabs" | "editing";
 
 export type HotkeyBinding = {
   action_id: string;

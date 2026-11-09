@@ -28,7 +28,7 @@ export function create_test_note(id: string, title: string): NoteMeta {
     path: `${id}.md` as NotePath,
     name: id.split("/").at(-1) ?? id,
     title,
-    mtime_ms: 0,
+    version: null,
     size_bytes: 0,
   };
 }

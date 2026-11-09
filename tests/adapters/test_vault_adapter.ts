@@ -15,10 +15,7 @@ const TEST_VAULT_2_PATH = as_vault_path("another-vault");
 const TEST_VAULT_2_ID = as_vault_id("test_vault_002");
 const TEST_VAULT_2_NAME = "Another Vault";
 
-const LAST_VAULT_KEY = "otterly_test_last_vault_id";
-
 export function create_test_vault_adapter(): VaultPort {
-  let last_vault_id: VaultId | null = null;
   const vault_a: Vault = {
     id: TEST_VAULT_ID,
     path: TEST_VAULT_PATH,
@@ -40,10 +37,6 @@ export function create_test_vault_adapter(): VaultPort {
   const vaults: Vault[] = [vault_a, vault_b];
 
   return {
-    choose_vault(): Promise<VaultPath | null> {
-      return Promise.resolve(TEST_VAULT_PATH);
-    },
-
     open_vault(vault_path: VaultPath): Promise<Vault> {
       if (vault_path === TEST_VAULT_PATH) {
         return Promise.resolve({
@@ -94,33 +87,6 @@ export function create_test_vault_adapter(): VaultPort {
 
     list_vaults(): Promise<Vault[]> {
       return Promise.resolve(vaults);
-    },
-
-    remove_vault(vault_id: VaultId): Promise<void> {
-      const index = vaults.findIndex((vault) => vault.id === vault_id);
-      if (index >= 0) {
-        vaults.splice(index, 1);
-      }
-      if (last_vault_id === vault_id) {
-        last_vault_id = null;
-      }
-      return Promise.resolve();
-    },
-
-    remember_last_vault(vault_id: VaultId): Promise<void> {
-      last_vault_id = vault_id;
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem(LAST_VAULT_KEY, vault_id);
-      }
-      return Promise.resolve();
-    },
-
-    get_last_vault_id(): Promise<VaultId | null> {
-      if (typeof localStorage !== "undefined") {
-        const stored = localStorage.getItem(LAST_VAULT_KEY);
-        return Promise.resolve(stored ? as_vault_id(stored) : null);
-      }
-      return Promise.resolve(last_vault_id);
     },
   };
 }

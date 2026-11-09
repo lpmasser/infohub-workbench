@@ -1,15 +1,7 @@
 import type { VaultPort } from "$lib/features/vault/ports";
 import type { WebApi } from "$lib/shared/adapters/web/web_api";
 import { WORKSPACE_SOURCE } from "$lib/shared/adapters/web/web_api";
-import {
-  read_browser_value,
-  write_browser_value,
-} from "$lib/shared/adapters/web/browser_storage";
-import {
-  as_vault_id,
-  as_vault_path,
-  type VaultId,
-} from "$lib/shared/types/ids";
+import { as_vault_id, as_vault_path } from "$lib/shared/types/ids";
 import type { Vault } from "$lib/shared/types/vault";
 
 type Draft = {
@@ -30,8 +22,6 @@ type Source = {
 };
 
 type SourcesResponse = { version: 1; sources: Source[] };
-
-const LAST_SOURCE_KEY = "last_source";
 
 function draft_description(draft: Draft | null | undefined): string {
   if (!draft) return "只读草稿 · 冲突检查尚无结果";
@@ -83,18 +73,8 @@ export function create_vault_web_adapter(api: WebApi): VaultPort {
   }
 
   return {
-    choose_vault: () => Promise.resolve(null),
     open_vault: open,
     open_vault_by_id: open,
     list_vaults: list,
-    remove_vault: () => Promise.reject(new Error("网页版的来源由服务器决定")),
-    remember_last_vault(vault_id: VaultId) {
-      write_browser_value(LAST_SOURCE_KEY, vault_id);
-      return Promise.resolve();
-    },
-    get_last_vault_id() {
-      const id = read_browser_value<string>(LAST_SOURCE_KEY);
-      return Promise.resolve(typeof id === "string" ? as_vault_id(id) : null);
-    },
   };
 }

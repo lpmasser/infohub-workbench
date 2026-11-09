@@ -89,7 +89,7 @@ function are_open_note_states_equal(
     left.meta.path === right.meta.path &&
     left.meta.name === right.meta.name &&
     left.meta.title === right.meta.title &&
-    left.meta.mtime_ms === right.meta.mtime_ms &&
+    left.meta.version === right.meta.version &&
     left.meta.size_bytes === right.meta.size_bytes
   );
 }

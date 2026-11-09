@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { toast } from "svelte-sonner";
 import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { register_ui_actions } from "$lib/app/orchestration/ui_actions";
@@ -10,7 +9,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 
 vi.mock("svelte-sonner", () => ({ toast: { error: vi.fn() } }));
 
@@ -30,25 +28,15 @@ function register_with_shell(shell: object) {
 
 describe("shell.open_linked_file", () => {
   it("opens documents in the default app", async () => {
-    const open_in_default_app = vi.fn().mockResolvedValue(true);
-    const registry = register_with_shell({ open_in_default_app });
+    const open_file = vi.fn().mockResolvedValue(true);
+    const registry = register_with_shell({ open_file });
 
     await registry.execute(
       ACTION_IDS.shell_open_linked_file,
       "files/budget.xlsx",
     );
 
-    expect(open_in_default_app).toHaveBeenCalledWith("files/budget.xlsx");
-  });
-
-  it("refuses programs and says why", async () => {
-    const open_in_default_app = vi.fn().mockResolvedValue(true);
-    const registry = register_with_shell({ open_in_default_app });
-
-    await registry.execute(ACTION_IDS.shell_open_linked_file, "setup.exe");
-
-    expect(open_in_default_app).not.toHaveBeenCalled();
-    expect(toast.error).toHaveBeenCalled();
+    expect(open_file).toHaveBeenCalledWith("files/budget.xlsx");
   });
 });
 
@@ -68,7 +56,6 @@ describe("register_ui_actions", () => {
       op: new OpStore(),
       search: new SearchStore(),
       tab: new TabStore(),
-      git: new GitStore(),
     };
 
     register_ui_actions({
@@ -107,7 +94,6 @@ describe("register_ui_actions", () => {
         op: new OpStore(),
         search: new SearchStore(),
         tab: new TabStore(),
-        git: new GitStore(),
       };
 
       register_ui_actions({

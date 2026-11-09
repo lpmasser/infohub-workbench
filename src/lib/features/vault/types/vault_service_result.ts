@@ -1,4 +1,3 @@
-import type { VaultPath } from "$lib/shared/types/ids";
 import type { EditorSettings } from "$lib/shared/types/editor_settings";
 
 export type VaultInitializeResult =
@@ -9,19 +8,6 @@ export type VaultInitializeResult =
     }
   | {
       status: "error";
-      error: string;
-    };
-
-export type VaultChoosePathResult =
-  | {
-      status: "selected";
-      path: VaultPath;
-    }
-  | {
-      status: "cancelled";
-    }
-  | {
-      status: "failed";
       error: string;
     };
 

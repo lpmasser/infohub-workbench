@@ -1,16 +1,6 @@
 import type { CommandDefinition } from "$lib/features/search/types/command_palette";
-import { is_web_build } from "$lib/app/runtime_target";
 
-// Commands whose feature the browser build does not have.
-const DESKTOP_ONLY_COMMANDS = new Set<CommandDefinition["id"]>([
-  "clean_up_legacy_markdown",
-  "git_version_history",
-  "git_create_checkpoint",
-  "git_init_repo",
-  "toggle_links_panel",
-]);
-
-const ALL_COMMANDS: CommandDefinition[] = [
+export const COMMANDS_REGISTRY: CommandDefinition[] = [
   {
     id: "create_new_note",
     label: "Create new note",
@@ -33,18 +23,9 @@ const ALL_COMMANDS: CommandDefinition[] = [
     icon: "code",
   },
   {
-    id: "clean_up_legacy_markdown",
-    label: "Clean up legacy Markdown…",
-    description: "Preview spacing cleanup for notes in this vault",
-    keywords: ["clean", "cleanup", "markdown", "spacing", "legacy", "br"],
-    icon: "refresh-cw",
-  },
-  {
     id: "change_vault",
-    label: is_web_build ? "切换来源" : "Change vault",
-    description: is_web_build
-      ? "在我的工作区、main 和草稿之间切换"
-      : "Switch to a different vault",
+    label: "切换来源",
+    description: "在我的工作区、main 和草稿之间切换",
     keywords: ["switch", "vault", "folder", "workspace", "change", "open"],
     icon: "folder-open",
   },
@@ -147,36 +128,4 @@ const ALL_COMMANDS: CommandDefinition[] = [
     keywords: ["dashboard", "vault", "overview", "stats", "activity"],
     icon: "folder-open",
   },
-  {
-    id: "git_version_history",
-    label: "Version History",
-    description: "View version history for the current note",
-    keywords: ["history", "versions", "git", "log", "timeline"],
-    icon: "history",
-  },
-  {
-    id: "git_create_checkpoint",
-    label: "Create Checkpoint",
-    description: "Save a named checkpoint of the current state",
-    keywords: ["checkpoint", "snapshot", "save", "git", "commit"],
-    icon: "bookmark",
-  },
-  {
-    id: "git_init_repo",
-    label: "Initialize Git Repository",
-    description: "Initialize version control for this vault",
-    keywords: ["git", "init", "repo", "repository", "version", "control"],
-    icon: "git-branch",
-  },
-  {
-    id: "toggle_links_panel",
-    label: "Toggle Links Panel",
-    description: "Show or hide backlinks and outlinks panel",
-    keywords: ["links", "backlinks", "outlinks", "context", "panel", "sidebar"],
-    icon: "link",
-  },
 ];
-
-export const COMMANDS_REGISTRY: CommandDefinition[] = is_web_build
-  ? ALL_COMMANDS.filter((command) => !DESKTOP_ONLY_COMMANDS.has(command.id))
-  : ALL_COMMANDS;

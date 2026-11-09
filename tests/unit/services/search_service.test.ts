@@ -31,7 +31,7 @@ function existing(path: string, score = 1): WikiSuggestion {
       path: as_note_path(path),
       name: path.split("/").at(-1)?.replace(".md", "") ?? "",
       title: path.split("/").at(-1)?.replace(".md", "") ?? "",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     score,
@@ -57,7 +57,7 @@ describe("SearchService", () => {
             path: as_note_path("docs/a.md"),
             name: "a",
             title: "a",
-            mtime_ms: 0,
+            version: null,
             size_bytes: 0,
           },
           score: 1,
@@ -224,11 +224,10 @@ describe("SearchService", () => {
 
     expect(
       service
-        .search_settings("version control")
+        .search_settings("save automatically")
         .some(
           (item) =>
-            item.kind === "setting" &&
-            item.setting.key === "git_autocommit_enabled",
+            item.kind === "setting" && item.setting.key === "autosave_enabled",
         ),
     ).toBe(true);
     expect(
@@ -482,7 +481,7 @@ describe("SearchService", () => {
             path: as_note_path("notes/meeting-notes.md"),
             name: "meeting-notes",
             title: "Meeting Notes",
-            mtime_ms: 0,
+            version: null,
             size_bytes: 0,
           },
           score: 0.8,
@@ -494,7 +493,7 @@ describe("SearchService", () => {
             path: as_note_path("notes/agenda.md"),
             name: "agenda",
             title: "Agenda",
-            mtime_ms: 0,
+            version: null,
             size_bytes: 0,
           },
           score: 0.7,
@@ -508,7 +507,7 @@ describe("SearchService", () => {
             path: as_note_path("notes/meeting-notes.md"),
             name: "meeting-notes",
             title: "Meeting Notes",
-            mtime_ms: 0,
+            version: null,
             size_bytes: 0,
           },
           score: 90,
@@ -571,7 +570,7 @@ describe("SearchService", () => {
             path: as_note_path("docs/meeting-notes.md"),
             name: "meeting-notes",
             title: "Meeting Notes",
-            mtime_ms: 0,
+            version: null,
             size_bytes: 0,
           },
           score: 95,
@@ -628,7 +627,7 @@ describe("SearchService", () => {
                 path: as_note_path("work/ml.md"),
                 name: "ml",
                 title: "Machine Learning",
-                mtime_ms: 0,
+                version: null,
                 size_bytes: 0,
               },
               score: 0.9,
@@ -643,7 +642,7 @@ describe("SearchService", () => {
               path: as_note_path("research/ml.md"),
               name: "ml",
               title: "ML Notes",
-              mtime_ms: 0,
+              version: null,
               size_bytes: 0,
             },
             score: 0.8,

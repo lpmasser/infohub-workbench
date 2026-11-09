@@ -1,5 +1,4 @@
 export type { InfoHubPort } from "./ports";
-export { create_infohub_tauri_adapter } from "./adapters/infohub_tauri_adapter";
 export { create_infohub_web_adapter } from "./adapters/infohub_web_adapter";
 export { InfoHubStore } from "./state/infohub_store.svelte";
 export { InfoHubService } from "./application/infohub_service";

@@ -1,12 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import AppRoot from "$lib/app/bootstrap/ui/app_root.svelte";
-  import { create_web_ports } from "$lib/app/create_prod_ports";
+  import { create_prod_ports } from "$lib/app/create_prod_ports";
   import { LoginForm } from "$lib/features/web_session";
-  import { as_vault_path } from "$lib/shared/types/ids";
-  import { WORKSPACE_SOURCE } from "$lib/shared/adapters/web/web_api";
 
-  const { ports, session } = create_web_ports();
+  const { ports, session } = create_prod_ports();
 
   let status = $state<"checking" | "signed_out" | "signed_in" | "error">(
     "checking",
@@ -52,11 +50,7 @@
 </script>
 
 {#if status === "signed_in"}
-  <AppRoot
-    {ports}
-    default_vault_path={as_vault_path(WORKSPACE_SOURCE)}
-    {sign_out}
-  />
+  <AppRoot {ports} {sign_out} />
 {/if}
 
 {#if expired}

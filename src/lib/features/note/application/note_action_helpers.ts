@@ -104,7 +104,7 @@ export function get_asset_write_options(settings: EditorSettings): {
   if (settings.store_attachments_with_note) {
     return { store_with_note: true };
   }
-  return { attachment_folder: settings.attachment_folder || ".assets" };
+  return { attachment_folder: settings.attachment_folder || "assets" };
 }
 
 export async function save_and_insert_image(

@@ -11,48 +11,25 @@ function create_harness({ with_vault = true } = {}) {
   return { port, service: new ShellService(port, vault_store) };
 }
 
-describe("ShellService.reveal_in_file_manager", () => {
-  it("reveals the vault item", async () => {
-    const { port, service } = create_harness();
-
-    expect(await service.reveal_in_file_manager("docs/a.md")).toBe(true);
-    expect(port._calls.reveal_in_file_manager).toEqual(["docs/a.md"]);
-  });
-
-  it("does nothing without an open vault", async () => {
-    const { port, service } = create_harness({ with_vault: false });
-
-    expect(await service.reveal_in_file_manager("docs/a.md")).toBe(false);
-    expect(port._calls.reveal_in_file_manager).toEqual([]);
-  });
-
-  it("reports failure when the port throws", async () => {
-    const { port, service } = create_harness();
-    port.reveal_in_file_manager = () => Promise.reject(new Error("gone"));
-
-    expect(await service.reveal_in_file_manager("docs/a.md")).toBe(false);
-  });
-});
-
-describe("ShellService.open_in_default_app", () => {
+describe("ShellService.open_file", () => {
   it("opens the vault item", async () => {
     const { port, service } = create_harness();
 
-    expect(await service.open_in_default_app("docs/a.md")).toBe(true);
-    expect(port._calls.open_in_default_app).toEqual(["docs/a.md"]);
+    expect(await service.open_file("docs/a.md")).toBe(true);
+    expect(port._calls.open_file).toEqual(["docs/a.md"]);
   });
 
   it("does nothing without an open vault", async () => {
     const { port, service } = create_harness({ with_vault: false });
 
-    expect(await service.open_in_default_app("docs/a.md")).toBe(false);
-    expect(port._calls.open_in_default_app).toEqual([]);
+    expect(await service.open_file("docs/a.md")).toBe(false);
+    expect(port._calls.open_file).toEqual([]);
   });
 
   it("reports failure when the port throws", async () => {
     const { port, service } = create_harness();
-    port.open_in_default_app = () => Promise.reject(new Error("gone"));
+    port.open_file = () => Promise.reject(new Error("gone"));
 
-    expect(await service.open_in_default_app("docs/a.md")).toBe(false);
+    expect(await service.open_file("docs/a.md")).toBe(false);
   });
 });

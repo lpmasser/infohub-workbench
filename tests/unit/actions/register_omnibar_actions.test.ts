@@ -11,7 +11,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import {
   as_note_path,
   as_vault_id,
@@ -29,7 +28,6 @@ function create_omnibar_actions_harness() {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
   };
   const execute_vault_select = vi.fn((vault_id: unknown) => {
     stores.vault.set_vault(
@@ -230,7 +228,7 @@ describe("register_omnibar_actions", () => {
                 path: as_note_path("ml.md"),
                 name: "ml",
                 title: "ML",
-                mtime_ms: 0,
+                version: null,
                 size_bytes: 0,
               },
               score: 0.9,

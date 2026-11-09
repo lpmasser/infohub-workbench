@@ -1,15 +1,16 @@
 import type { NotesPort } from "$lib/features/note/ports";
 import {
+  NoteExistsError,
+  NoteNotTextError,
+  NoteVersionConflictError,
+} from "$lib/features/note/types/note_errors";
+import {
   WebApiError,
   WORKSPACE_SOURCE,
 } from "$lib/shared/adapters/web/web_api";
 import type { WebFiles, WebTree } from "$lib/shared/adapters/web/web_files";
-import {
-  as_markdown_text,
-  as_note_path,
-  type VaultId,
-} from "$lib/shared/types/ids";
-import type { NoteMeta } from "$lib/shared/types/note";
+import { as_markdown_text, type VaultId } from "$lib/shared/types/ids";
+import { note_meta } from "$lib/shared/utils/note_meta";
 import type {
   FolderContents,
   MoveItemResult,
@@ -24,10 +25,6 @@ function leaf(path: string): string {
   return path.split("/").at(-1) ?? path;
 }
 
-function note_name(path: string): string {
-  return leaf(path).replace(/\.md$/, "");
-}
-
 function is_markdown(path: string): boolean {
   return path.toLowerCase().endsWith(".md");
 }
@@ -37,19 +34,6 @@ function parent(path: string): string {
   return index < 0 ? "" : path.slice(0, index);
 }
 
-function to_meta(path: string, size_bytes: number, mtime_ms: number): NoteMeta {
-  const id = as_note_path(path);
-  // Titles would need every file's content; the tree shows file names.
-  return {
-    id,
-    path: id,
-    name: note_name(path),
-    title: note_name(path),
-    mtime_ms,
-    size_bytes,
-  };
-}
-
 function compare_names(a: string, b: string): number {
   const left = a.toLowerCase();
   const right = b.toLowerCase();
@@ -57,31 +41,23 @@ function compare_names(a: string, b: string): number {
 }
 
 function children(tree: WebTree, folder: string) {
-  const subfolders = [...tree.directories]
-    .filter((path) => parent(path) === folder)
-    .sort((a, b) => compare_names(leaf(a), leaf(b)));
-  const files = [...tree.files.keys()]
-    .filter((path) => parent(path) === folder)
-    .sort((a, b) => compare_names(leaf(a), leaf(b)));
-  return { subfolders, files };
+  const by_name = (a: string, b: string) => compare_names(leaf(a), leaf(b));
+  return {
+    subfolders: [...tree.directories]
+      .filter((path) => parent(path) === folder)
+      .sort(by_name),
+    files: [...tree.files.keys()]
+      .filter((path) => parent(path) === folder)
+      .sort(by_name),
+  };
 }
 
 function in_folder(path: string, folder: string): boolean {
   return folder === "" || path.startsWith(`${folder}/`);
 }
 
-function unsupported(what: string): Promise<never> {
-  return Promise.reject(new Error(`网页版不支持${what}`));
-}
-
-// The services recognize these conditions by message, as with the desktop
-// backend's errors.
-function conflict_error(path: string): Error {
-  return new Error(`conflict:mtime_mismatch: ${path} 已在别处修改，未覆盖`);
-}
-
-function exists_error(path: string): Error {
-  return new Error(`note already exists: ${path}`);
+function not_found(path: string): WebApiError {
+  return new WebApiError(404, "FILE_NOT_FOUND", `not found: ${path}`);
 }
 
 function require_workspace(vault_id: VaultId): void {
@@ -94,79 +70,46 @@ function is_conflict(error: unknown): error is WebApiError {
 }
 
 export function create_notes_web_adapter(files: WebFiles): NotesPort {
-  async function tree_meta(vault_id: VaultId, path: string): Promise<NoteMeta> {
-    const tree = await files.tree(vault_id);
-    const size = tree.files.get(path);
-    if (size === undefined)
-      throw new WebApiError(404, "FILE_NOT_FOUND", `not found: ${path}`);
-    const etag = files.latest_etag(vault_id, path);
-    return to_meta(
-      path,
-      size,
-      etag ? files.version_token(vault_id, path, etag) : 0,
-    );
-  }
-
-  // The version a write must match. Token 0 is the user's explicit "keep my
-  // changes"; any other token must be a version this page has loaded.
-  async function expected_version(
-    path: string,
-    token: number | undefined,
-  ): Promise<string | null> {
-    if (token === 0) return await files.current_version(path);
-    if (token === undefined)
-      return (
-        files.latest_etag(WORKSPACE_SOURCE, path) ??
-        (await files.current_version(path))
-      );
-    const etag = files.version_etag(WORKSPACE_SOURCE, path, token);
-    if (!etag) throw conflict_error(path);
-    return etag;
-  }
-
   async function existing_version(path: string): Promise<string> {
-    const etag =
-      files.latest_etag(WORKSPACE_SOURCE, path) ??
-      (await files.current_version(path));
-    if (!etag)
-      throw new WebApiError(404, "FILE_NOT_FOUND", `not found: ${path}`);
-    return etag;
+    const version = await files.current_version(path);
+    if (!version) throw not_found(path);
+    return version;
   }
 
-  async function write_text(
+  async function write(
     path: string,
     markdown: string,
-    etag: string | null,
-  ): Promise<number> {
+    base_version: string | null,
+  ): Promise<string> {
     try {
-      const saved = await files.write(
+      return await files.write(
         path,
         encoder.encode(markdown),
-        etag === null ? { create: true } : { if_match: etag },
+        base_version === null ? { create: true } : { if_match: base_version },
       );
-      return files.version_token(WORKSPACE_SOURCE, path, saved);
     } catch (error) {
-      if (is_conflict(error))
-        throw etag === null ? exists_error(path) : conflict_error(path);
-      throw error;
+      if (!is_conflict(error)) throw error;
+      throw base_version === null
+        ? new NoteExistsError(path)
+        : new NoteVersionConflictError(path);
     }
   }
 
-  async function move(
-    from: string,
-    to: string,
-    overwrite: boolean,
-  ): Promise<void> {
-    const etag = await existing_version(from);
+  // Moves and deletes act on the file as it is now: the user picked it in
+  // the tree, where no content was shown. The version still makes the
+  // server refuse if it changes between this read and the request.
+  async function move(from: string, to: string, overwrite: boolean) {
+    const version = await existing_version(from);
     const destination_version = overwrite
       ? await files.current_version(to)
       : null;
     try {
-      const moved = await files.move(from, to, etag, destination_version);
-      files.version_token(WORKSPACE_SOURCE, to, moved);
+      await files.move(from, to, version, destination_version);
     } catch (error) {
       if (!is_conflict(error)) throw error;
-      throw error.details.path === to ? exists_error(to) : conflict_error(from);
+      throw error.details.path === to
+        ? new NoteExistsError(to)
+        : new NoteVersionConflictError(from);
     }
   }
 
@@ -175,7 +118,7 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
       const tree = await files.tree(vault_id);
       return [...tree.files]
         .filter(([path]) => is_markdown(path))
-        .map(([path, size]) => to_meta(path, size, 0));
+        .map(([path, size]) => note_meta(path, size));
     },
 
     async list_folders(vault_id) {
@@ -185,32 +128,43 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
     async read_note(vault_id, note_id) {
       const file = await files.read(vault_id, note_id);
       if (/^(image|audio|video)\/|^application\/pdf/.test(file.content_type))
-        throw new Error(`file_not_text: ${note_id}`);
+        throw new NoteNotTextError(note_id);
       let markdown: string;
       try {
         markdown = decoder.decode(file.bytes);
       } catch {
-        throw new Error(`file_not_text: ${note_id}`);
+        throw new NoteNotTextError(note_id);
       }
-      const token = files.version_token(vault_id, note_id, file.etag);
       return {
-        meta: to_meta(note_id, file.bytes.length, token),
+        meta: note_meta(note_id, file.bytes.length, file.etag),
         markdown: as_markdown_text(markdown),
       };
     },
 
-    read_note_meta: tree_meta,
+    async read_note_meta(vault_id, note_id) {
+      const size = (await files.tree(vault_id)).files.get(note_id);
+      if (size === undefined) throw not_found(note_id);
+      return note_meta(note_id, size);
+    },
 
-    async write_note(vault_id, note_id, markdown, expected_mtime_ms) {
+    async write_note(vault_id, note_id, markdown, base_version) {
       require_workspace(vault_id);
-      const etag = await expected_version(note_id, expected_mtime_ms);
-      return await write_text(note_id, markdown, etag);
+      return await write(note_id, markdown, base_version);
+    },
+
+    async current_version(vault_id, note_id) {
+      require_workspace(vault_id);
+      return await files.current_version(note_id);
     },
 
     async create_note(vault_id, note_path, initial_markdown) {
       require_workspace(vault_id);
-      const token = await write_text(note_path, initial_markdown, null);
-      return to_meta(note_path, encoder.encode(initial_markdown).length, token);
+      const version = await write(note_path, initial_markdown, null);
+      return note_meta(
+        note_path,
+        encoder.encode(initial_markdown).length,
+        version,
+      );
     },
 
     async rename_note(vault_id, from, to) {
@@ -223,7 +177,7 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
       try {
         await files.remove(note_id, await existing_version(note_id));
       } catch (error) {
-        if (is_conflict(error)) throw conflict_error(note_id);
+        if (is_conflict(error)) throw new NoteVersionConflictError(note_id);
         throw error;
       }
     },
@@ -236,11 +190,7 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
     ): Promise<FolderContents> {
       const tree = await files.tree(vault_id);
       if (folder_path && !tree.directories.has(folder_path))
-        throw new WebApiError(
-          404,
-          "FILE_NOT_FOUND",
-          `not found: ${folder_path}`,
-        );
+        throw not_found(folder_path);
       const { subfolders, files: file_paths } = children(tree, folder_path);
       const entries = [
         ...subfolders.map((path) => ({ path, folder: true })),
@@ -252,7 +202,7 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
         notes: page
           .filter((entry) => !entry.folder)
           .map((entry) =>
-            to_meta(entry.path, tree.files.get(entry.path) ?? 0, 0),
+            note_meta(entry.path, tree.files.get(entry.path) ?? 0),
           ),
         total_count: entries.length,
         has_more: offset + limit < entries.length,
@@ -283,7 +233,7 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
             path: item.path,
             new_path,
             success: false,
-            error: "网页版不能移动文件夹，请逐个移动文件",
+            error: "不能移动文件夹，请逐个移动文件",
           });
           continue;
         }
@@ -306,12 +256,5 @@ export function create_notes_web_adapter(files: WebFiles): NotesPort {
       }
       return results;
     },
-
-    create_folder: () => unsupported("新建空文件夹"),
-    rename_folder: () => unsupported("重命名文件夹"),
-    delete_folder: () => unsupported("删除文件夹"),
-    apply_markdown_cleanup: () => unsupported("旧格式 Markdown 清理"),
-    get_latest_markdown_cleanup_backup: () => Promise.resolve(null),
-    restore_latest_markdown_cleanup: () => Promise.resolve(null),
   };
 }

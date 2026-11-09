@@ -16,7 +16,7 @@ import type {
 
 function derive_note_meta(
   note_path: NotePath,
-  data: { markdown: MarkdownText; mtime_ms: number },
+  data: { markdown: MarkdownText; version: string },
 ): NoteMeta {
   const parts = note_path.split("/").filter(Boolean);
   const last_part = parts[parts.length - 1] || "";
@@ -26,33 +26,33 @@ function derive_note_meta(
     path: note_path,
     name: title,
     title,
-    mtime_ms: data.mtime_ms,
+    version: data.version,
     size_bytes: new Blob([data.markdown]).size,
   };
 }
 
 const FALLBACK_TEST_NOTES = new Map<
   NotePath,
-  { markdown: MarkdownText; mtime_ms: number }
+  { markdown: MarkdownText; version: string }
 >([
   [
     as_note_path("welcome.md"),
     {
       markdown: as_markdown_text("# Welcome\n\nWelcome to your notes."),
-      mtime_ms: Date.now(),
+      version: "v0",
     },
   ],
   [
     as_note_path("getting-started.md"),
     {
       markdown: as_markdown_text("# Getting Started\n\nStart taking notes!"),
-      mtime_ms: Date.now(),
+      version: "v0",
     },
   ],
 ]);
 
 function load_base_files(): Promise<
-  Map<NotePath, { markdown: MarkdownText; mtime_ms: number }>
+  Map<NotePath, { markdown: MarkdownText; version: string }>
 > {
   return Promise.resolve(new Map(FALLBACK_TEST_NOTES));
 }
@@ -61,11 +61,10 @@ export function create_test_notes_adapter(): NotesPort {
   const created_folders = new Set<string>();
   const user_notes = new Map<
     NotePath,
-    { markdown: MarkdownText; mtime_ms: number }
+    { markdown: MarkdownText; version: string }
   >();
-  let cleanup_backup:
-    | import("$lib/features/note/ports").MarkdownCleanupBackupInfo
-    | null = null;
+  let revision = 0;
+  const next_version = () => `v${String(++revision)}`;
 
   return {
     async list_notes(_vault_id: VaultId): Promise<NoteMeta[]> {
@@ -134,36 +133,18 @@ export function create_test_notes_adapter(): NotesPort {
       _vault_id: VaultId,
       note_id: NoteId,
       markdown: MarkdownText,
-    ): Promise<number> {
+    ): Promise<string> {
+      const version = next_version();
+      user_notes.set(as_note_path(note_id), { markdown, version });
+      return Promise.resolve(version);
+    },
+
+    async current_version(_vault_id: VaultId, note_id: NoteId) {
+      const notes = await load_base_files();
       const note_path = as_note_path(note_id);
-      const mtime = Date.now();
-      user_notes.set(note_path, { markdown, mtime_ms: mtime });
-      return Promise.resolve(mtime);
-    },
-    apply_markdown_cleanup(_vault_id, changes) {
-      cleanup_backup = {
-        id: "test-backup",
-        created_at_ms: Date.now(),
-        note_count: changes.length,
-      };
-      const updated_notes: NoteMeta[] = [];
-      for (const change of changes) {
-        const path = as_note_path(change.note_id);
-        const data = {
-          markdown: as_markdown_text(change.cleaned_markdown),
-          mtime_ms: Date.now(),
-        };
-        user_notes.set(path, data);
-        updated_notes.push(derive_note_meta(path, data));
-      }
-      return Promise.resolve({ backup: cleanup_backup, updated_notes });
-    },
-    get_latest_markdown_cleanup_backup() {
-      return Promise.resolve(cleanup_backup);
-    },
-    restore_latest_markdown_cleanup() {
-      cleanup_backup = null;
-      return Promise.resolve(null);
+      return (
+        (user_notes.get(note_path) ?? notes.get(note_path))?.version ?? null
+      );
     },
 
     create_note(
@@ -174,22 +155,10 @@ export function create_test_notes_adapter(): NotesPort {
       const full_path = note_path.endsWith(".md")
         ? as_note_path(note_path)
         : as_note_path(`${note_path}.md`);
-      const data = { markdown: initial_markdown, mtime_ms: Date.now() };
+      const data = { markdown: initial_markdown, version: next_version() };
       user_notes.set(full_path, data);
 
       return Promise.resolve(derive_note_meta(full_path, data));
-    },
-
-    create_folder(
-      _vault_id: VaultId,
-      parent_path: string,
-      folder_name: string,
-    ): Promise<void> {
-      const full_path = parent_path
-        ? `${parent_path}/${folder_name}`
-        : folder_name;
-      created_folders.add(full_path);
-      return Promise.resolve();
     },
 
     rename_note(
@@ -279,29 +248,6 @@ export function create_test_notes_adapter(): NotesPort {
         total_count,
         has_more: end < total_count,
       };
-    },
-
-    rename_folder(
-      _vault_id: VaultId,
-      from_path: string,
-      to_path: string,
-    ): Promise<void> {
-      if (created_folders.has(from_path)) {
-        created_folders.delete(from_path);
-        created_folders.add(to_path);
-      }
-      return Promise.resolve();
-    },
-
-    delete_folder(_vault_id: VaultId, folder_path: string): Promise<void> {
-      const prefix = folder_path + "/";
-
-      for (const folder of created_folders) {
-        if (folder === folder_path || folder.startsWith(prefix)) {
-          created_folders.delete(folder);
-        }
-      }
-      return Promise.resolve();
     },
 
     async get_folder_stats(

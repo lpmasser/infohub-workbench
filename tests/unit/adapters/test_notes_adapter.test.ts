@@ -15,18 +15,6 @@ describe("test_notes_adapter", () => {
     expect(notes[0]?.path).toContain(".md");
   });
 
-  it("creates folders and lists them", async () => {
-    const adapter = create_test_notes_adapter();
-    const vault_id = as_vault_id("vault-1");
-
-    await adapter.create_folder(vault_id, "", "docs");
-    await adapter.create_folder(vault_id, "docs", "nested");
-
-    const folders = await adapter.list_folders(vault_id);
-    expect(folders).toContain("docs");
-    expect(folders).toContain("docs/nested");
-  });
-
   it("creates note and returns metadata", async () => {
     const adapter = create_test_notes_adapter();
     const note = await adapter.create_note(

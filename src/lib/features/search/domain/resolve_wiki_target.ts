@@ -1,4 +1,4 @@
-// Same rules as the desktop backend's resolve_wiki_target (link_parser.rs):
+// Link targets:
 // "./" and "../" targets are relative to the note's folder, everything else
 // to the vault root, and ".md" is implied. Escaping the root yields null.
 

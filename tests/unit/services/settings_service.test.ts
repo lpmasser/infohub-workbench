@@ -43,7 +43,6 @@ describe("SettingsService", () => {
       global_get: (key) => {
         if (key === "show_vault_dashboard_on_open") return false;
         if (key === "autosave_enabled") return false;
-        if (key === "git_autocommit_enabled") return true;
         return null;
       },
     });
@@ -56,7 +55,6 @@ describe("SettingsService", () => {
     if (result.status !== "success") throw new Error("expected success");
     expect(result.settings.show_vault_dashboard_on_open).toBe(false);
     expect(result.settings.autosave_enabled).toBe(false);
-    expect(result.settings.git_autocommit_enabled).toBe(true);
     expect(result.settings.max_open_tabs).toBe(8);
   });
 
@@ -67,7 +65,6 @@ describe("SettingsService", () => {
       ...DEFAULT_EDITOR_SETTINGS,
       show_vault_dashboard_on_open: false,
       autosave_enabled: false,
-      git_autocommit_enabled: true,
     };
 
     const result = await service.save_settings(settings);
@@ -78,7 +75,6 @@ describe("SettingsService", () => {
       .calls[0]?.[2] as Record<string, unknown>;
     expect(saved_vault).not.toHaveProperty("show_vault_dashboard_on_open");
     expect(saved_vault).not.toHaveProperty("autosave_enabled");
-    expect(saved_vault).not.toHaveProperty("git_autocommit_enabled");
     expect(saved_vault).toHaveProperty("max_open_tabs");
 
     expect(settings_port.set_setting).toHaveBeenCalledWith(
@@ -89,10 +85,6 @@ describe("SettingsService", () => {
       "autosave_enabled",
       false,
     );
-    expect(settings_port.set_setting).toHaveBeenCalledWith(
-      "git_autocommit_enabled",
-      true,
-    );
   });
 
   it("sanitizes stale global-only keys from vault settings during load", async () => {
@@ -101,7 +93,6 @@ describe("SettingsService", () => {
         max_open_tabs: 7,
         autosave_enabled: true,
         show_vault_dashboard_on_open: true,
-        git_autocommit_enabled: true,
       },
       global_get: () => false,
     });
@@ -116,7 +107,6 @@ describe("SettingsService", () => {
       .calls[0]?.[2] as Record<string, unknown>;
     expect(written_vault).not.toHaveProperty("show_vault_dashboard_on_open");
     expect(written_vault).not.toHaveProperty("autosave_enabled");
-    expect(written_vault).not.toHaveProperty("git_autocommit_enabled");
     expect(written_vault).toHaveProperty("max_open_tabs", 7);
   });
 

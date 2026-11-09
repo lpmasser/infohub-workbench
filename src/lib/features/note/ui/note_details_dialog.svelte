@@ -13,10 +13,6 @@
   }
 
   let { open, note, word_count, line_count, on_close }: Props = $props();
-
-  function format_date(ms: number): string {
-    return new Date(ms).toLocaleString();
-  }
 </script>
 
 <Dialog.Root
@@ -48,12 +44,6 @@
           <span class="NoteDetailsDialog__label">Size</span>
           <span class="NoteDetailsDialog__value"
             >{format_bytes(note.meta.size_bytes)}</span
-          >
-        </div>
-        <div class="NoteDetailsDialog__row">
-          <span class="NoteDetailsDialog__label">Modified</span>
-          <span class="NoteDetailsDialog__value"
-            >{format_date(note.meta.mtime_ms)}</span
           >
         </div>
         <div class="NoteDetailsDialog__row">

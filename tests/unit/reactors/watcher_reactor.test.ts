@@ -268,7 +268,7 @@ describe("watcher_reactor", () => {
         path: as_note_path("notes/a.md"),
         name: "a",
         title: "A",
-        mtime_ms: 0,
+        version: null,
         size_bytes: 0,
       },
       markdown: as_markdown_text("# A"),

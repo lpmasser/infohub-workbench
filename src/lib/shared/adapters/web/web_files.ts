@@ -48,23 +48,9 @@ function validate_tree(value: TreeResponse): WebTree {
   return { files, directories, commit: value.commit };
 }
 
-function key(source: WebSourceId, path: string): string {
-  return `${source}\0${path}`;
-}
-
-// Files of every source, plus the client-side bookkeeping that the ports need:
-// the services track a numeric version per open note, the server versions
-// files with ETags. Each ETag the client has seen for a path gets a stable
-// token, so "is this still the version I loaded?" keeps working.
+// Files of every source, with each source's tree cached until a change.
 export class WebFiles {
   private readonly trees = new Map<WebSourceId, Promise<WebTree>>();
-  private readonly token_versions = new Map<
-    number,
-    { key: string; etag: string }
-  >();
-  private readonly tokens_by_version = new Map<string, number>();
-  private readonly latest_tokens = new Map<string, number>();
-  private last_token = 0;
 
   constructor(readonly api: WebApi) {}
 
@@ -105,39 +91,6 @@ export class WebFiles {
             ? "added"
             : "changed",
     }));
-  }
-
-  version_token(source: WebSourceId, path: string, etag: string): number {
-    const file_key = key(source, path);
-    const version_key = `${file_key}\0${etag}`;
-    let token = this.tokens_by_version.get(version_key);
-    if (token === undefined) {
-      // Tokens double as the "last saved" time the editor shows.
-      token = Math.max(Date.now(), this.last_token + 1);
-      this.last_token = token;
-      this.tokens_by_version.set(version_key, token);
-      this.token_versions.set(token, { key: file_key, etag });
-    }
-    this.latest_tokens.set(file_key, token);
-    return token;
-  }
-
-  version_etag(
-    source: WebSourceId,
-    path: string,
-    token: number,
-  ): string | null {
-    const version = this.token_versions.get(token);
-    return version && version.key === key(source, path) ? version.etag : null;
-  }
-
-  latest_etag(source: WebSourceId, path: string): string | null {
-    const token = this.latest_tokens.get(key(source, path));
-    return token === undefined ? null : this.version_etag(source, path, token);
-  }
-
-  forget(source: WebSourceId, path: string): void {
-    this.latest_tokens.delete(key(source, path));
   }
 
   async read(source: WebSourceId, path: string): Promise<WebFileRead> {
@@ -186,7 +139,6 @@ export class WebFiles {
     await this.api.json("DELETE", file_url(WORKSPACE_SOURCE, path), 1, {
       headers: { "If-Match": if_match },
     });
-    this.forget(WORKSPACE_SOURCE, path);
     this.invalidate_tree(WORKSPACE_SOURCE);
   }
 
@@ -205,7 +157,6 @@ export class WebFiles {
         headers: { "If-Match": if_match },
       },
     );
-    this.forget(WORKSPACE_SOURCE, path);
     this.invalidate_tree(WORKSPACE_SOURCE);
     return response.etag;
   }

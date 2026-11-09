@@ -38,7 +38,7 @@ export function create_untitled_open_note(args: {
       path: draft_path,
       name: title,
       title,
-      mtime_ms: args.now_ms,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text(""),

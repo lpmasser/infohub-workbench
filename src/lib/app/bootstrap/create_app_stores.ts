@@ -6,8 +6,6 @@ import { UIStore } from "$lib/app/orchestration/ui_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search";
 import { TabStore } from "$lib/features/tab";
-import { GitStore } from "$lib/features/git";
-import { LinksStore } from "$lib/features/links";
 
 export type AppStores = {
   infohub: InfoHubStore;
@@ -18,8 +16,6 @@ export type AppStores = {
   op: OpStore;
   search: SearchStore;
   tab: TabStore;
-  git: GitStore;
-  links: LinksStore;
 };
 
 export function create_app_stores(): AppStores {
@@ -32,7 +28,5 @@ export function create_app_stores(): AppStores {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
-    links: new LinksStore(),
   };
 }

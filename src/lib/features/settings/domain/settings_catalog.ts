@@ -114,22 +114,6 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
-    key: "git_autocommit_enabled",
-    label: "Git Auto-commit",
-    description: "Automatically commit saved changes to Git",
-    category: "Git",
-    keywords: [
-      "git",
-      "autocommit",
-      "auto commit",
-      "commit",
-      "version",
-      "automatic",
-      "source control",
-      "version control",
-    ],
-  },
-  {
     key: "show_vault_dashboard_on_open",
     label: "Show Vault Dashboard on Open",
     description: "Open vault dashboard automatically when switching vaults",

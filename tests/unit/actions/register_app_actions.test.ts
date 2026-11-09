@@ -9,7 +9,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import { DEFAULT_HOTKEYS } from "$lib/features/hotkey";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
@@ -32,27 +31,6 @@ type HarnessOptions = {
   reset_app_state?: boolean;
 };
 
-function get_test_window(): Window & {
-  __TAURI__?: unknown;
-  __TAURI_INTERNALS__?: unknown;
-} {
-  const maybe_window = globalThis as typeof globalThis & {
-    window?: Window &
-      typeof globalThis & {
-        __TAURI__?: unknown;
-        __TAURI_INTERNALS__?: unknown;
-      };
-  };
-  if (!maybe_window.window) {
-    maybe_window.window = globalThis as unknown as Window &
-      typeof globalThis & {
-        __TAURI__?: unknown;
-        __TAURI_INTERNALS__?: unknown;
-      };
-  }
-  return maybe_window.window;
-}
-
 function create_app_note(path = "notes/a.md"): OpenNoteState {
   return {
     meta: {
@@ -60,7 +38,7 @@ function create_app_note(path = "notes/a.md"): OpenNoteState {
       path: as_note_path(path),
       name: "a.md",
       title: "a",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text("# A"),
@@ -79,7 +57,6 @@ function create_harness(options: HarnessOptions = {}) {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
   };
 
   const services = {
@@ -136,7 +113,6 @@ function create_harness(options: HarnessOptions = {}) {
   };
 
   const execute_folder_refresh_tree = vi.fn().mockResolvedValue(undefined);
-  const execute_git_check_repo = vi.fn().mockResolvedValue(undefined);
   const execute_open_vault_dashboard = vi.fn().mockResolvedValue(undefined);
 
   register_app_actions({
@@ -156,12 +132,6 @@ function create_harness(options: HarnessOptions = {}) {
   });
 
   registry.register({
-    id: ACTION_IDS.git_check_repo,
-    label: "Check Git Repo",
-    execute: execute_git_check_repo,
-  });
-
-  registry.register({
     id: ACTION_IDS.ui_open_vault_dashboard,
     label: "Open Vault Dashboard",
     execute: execute_open_vault_dashboard,
@@ -172,7 +142,6 @@ function create_harness(options: HarnessOptions = {}) {
     stores,
     services,
     execute_folder_refresh_tree,
-    execute_git_check_repo,
     execute_open_vault_dashboard,
   };
 }
@@ -180,9 +149,6 @@ function create_harness(options: HarnessOptions = {}) {
 describe("register_app_actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    const test_window = get_test_window();
-    delete test_window.__TAURI__;
-    delete test_window.__TAURI_INTERNALS__;
   });
 
   it("initializes app state and loads vault UI when vault exists", async () => {
@@ -191,7 +157,6 @@ describe("register_app_actions", () => {
       stores,
       services,
       execute_folder_refresh_tree,
-      execute_git_check_repo,
       execute_open_vault_dashboard,
     } = create_harness();
 
@@ -208,7 +173,6 @@ describe("register_app_actions", () => {
 
     expect(stores.ui.startup).toEqual({ status: "idle", error: null });
     expect(execute_folder_refresh_tree).toHaveBeenCalledTimes(1);
-    expect(execute_git_check_repo).toHaveBeenCalledTimes(1);
     expect(execute_open_vault_dashboard).toHaveBeenCalledTimes(1);
     expect(services.hotkey.merge_config).toHaveBeenCalledWith(
       DEFAULT_HOTKEYS,
@@ -261,7 +225,6 @@ describe("register_app_actions", () => {
       stores,
       services,
       execute_folder_refresh_tree,
-      execute_git_check_repo,
       execute_open_vault_dashboard,
     } = create_harness();
 
@@ -277,7 +240,6 @@ describe("register_app_actions", () => {
       error: "startup failed",
     });
     expect(execute_folder_refresh_tree).not.toHaveBeenCalled();
-    expect(execute_git_check_repo).not.toHaveBeenCalled();
     expect(execute_open_vault_dashboard).not.toHaveBeenCalled();
   });
 

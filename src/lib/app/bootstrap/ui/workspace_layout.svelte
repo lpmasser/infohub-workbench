@@ -15,27 +15,19 @@
   import { TabBar } from "$lib/features/tab";
   import { FindInFileBar } from "$lib/features/search";
   import { EditorStatusBar } from "$lib/features/editor";
-  import { ContextRail } from "$lib/features/links";
   import { SvelteSet } from "svelte/reactivity";
   import { untrack } from "svelte";
   import { build_filetree, sort_tree } from "$lib/features/folder";
   import { flatten_filetree, scope_flat_tree } from "$lib/features/folder";
   import { as_note_path } from "$lib/shared/types/ids";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
-  import { is_web_build } from "$lib/app/runtime_target";
   import { ACTION_IDS } from "$lib/app";
   import type { NoteMeta } from "$lib/shared/types/note";
-  import {
-    FilePlus,
-    FolderPlus,
-    RefreshCw,
-    FoldVertical,
-  } from "@lucide/svelte";
+  import { FilePlus, RefreshCw, FoldVertical } from "@lucide/svelte";
 
   const { stores, action_registry } = use_app_context();
 
-  // Web sources other than the workspace are read-only: no entry points
-  // that would write. Desktop-only entry points are absent from the web build.
+  // main and drafts are read-only: no entry points that would write.
   const writable = $derived(!stores.vault.vault?.read_only);
 
   // On a phone the sidebar and the editor take turns filling the screen.
@@ -160,7 +152,7 @@
               /\.md$/i,
               "",
             ),
-            mtime_ms: 0,
+            version: null,
             size_bytes: 0,
           } as NoteMeta);
 
@@ -322,20 +314,6 @@
   };
 
   const explorer_header_actions: HeaderAction[] = [
-    // The web API has no empty folders; a new note's path creates folders.
-    ...(is_web_build
-      ? []
-      : [
-          {
-            icon: FolderPlus,
-            label: "New Folder",
-            onclick: () =>
-              void action_registry.execute(
-                ACTION_IDS.folder_request_create,
-                stores.ui.selected_folder_path,
-              ),
-          },
-        ]),
     {
       icon: RefreshCw,
       label: "Refresh",
@@ -446,9 +424,8 @@
         on_open_help={() => void action_registry.execute(ACTION_IDS.help_open)}
         on_open_settings={() =>
           void action_registry.execute(ACTION_IDS.settings_open)}
-        on_sign_out={is_web_build
-          ? () => void action_registry.execute(ACTION_IDS.app_sign_out)
-          : undefined}
+        on_sign_out={() =>
+          void action_registry.execute(ACTION_IDS.app_sign_out)}
       />
       <Sidebar.Provider
         open={stores.ui.sidebar_open}
@@ -592,24 +569,10 @@
                                 void action_registry.execute(
                                   ACTION_IDS.note_create,
                                 )}
-                          on_request_create_folder={is_web_build
-                            ? undefined
-                            : (folder_path: string) =>
-                                void action_registry.execute(
-                                  ACTION_IDS.folder_request_create,
-                                  folder_path,
-                                )}
                           on_toggle_star={toggle_star_for_selection}
-                          on_reveal_in_file_manager={is_web_build
-                            ? undefined
-                            : (path: string) =>
-                                void action_registry.execute(
-                                  ACTION_IDS.shell_reveal_in_file_manager,
-                                  path,
-                                )}
-                          on_open_in_default_app={(path: string) =>
+                          on_open_file={(path: string) =>
                             void action_registry.execute(
-                              ACTION_IDS.shell_open_in_default_app,
+                              ACTION_IDS.shell_open_file,
                               path,
                             )}
                           on_retry_load={(path: string) =>
@@ -741,32 +704,11 @@
                                 ACTION_IDS.note_request_rename,
                                 note,
                               )}
-                        on_request_delete_folder={is_web_build
-                          ? undefined
-                          : (folder_path: string) =>
-                              void action_registry.execute(
-                                ACTION_IDS.folder_request_delete,
-                                folder_path,
-                              )}
-                        on_request_rename_folder={is_web_build
-                          ? undefined
-                          : (folder_path: string) =>
-                              void action_registry.execute(
-                                ACTION_IDS.folder_request_rename,
-                                folder_path,
-                              )}
                         on_request_create_note={!writable
                           ? undefined
                           : () =>
                               void action_registry.execute(
                                 ACTION_IDS.note_create,
-                              )}
-                        on_request_create_folder={is_web_build
-                          ? undefined
-                          : (folder_path: string) =>
-                              void action_registry.execute(
-                                ACTION_IDS.folder_request_create,
-                                folder_path,
                               )}
                         scoped_root_path={stores.ui.filetree_scoped_root_path}
                         on_scope_to_folder={(folder_path: string) =>
@@ -779,16 +721,9 @@
                             ACTION_IDS.filetree_clear_scope,
                           )}
                         on_toggle_star={toggle_star_for_selection}
-                        on_reveal_in_file_manager={is_web_build
-                          ? undefined
-                          : (path: string) =>
-                              void action_registry.execute(
-                                ACTION_IDS.shell_reveal_in_file_manager,
-                                path,
-                              )}
-                        on_open_in_default_app={(path: string) =>
+                        on_open_file={(path: string) =>
                           void action_registry.execute(
-                            ACTION_IDS.shell_open_in_default_app,
+                            ACTION_IDS.shell_open_file,
                             path,
                           )}
                         on_retry_load={(path: string) =>
@@ -869,17 +804,6 @@
               </div>
             </Sidebar.Inset>
           </Resizable.Pane>
-          {#if stores.ui.context_rail_open && !is_web_build}
-            <Resizable.Handle withHandle />
-            <Resizable.Pane
-              defaultSize={20}
-              minSize={12}
-              maxSize={35}
-              order={3}
-            >
-              <ContextRail />
-            </Resizable.Pane>
-          {/if}
         </Resizable.PaneGroup>
       </Sidebar.Provider>
     </div>
@@ -893,20 +817,11 @@
       last_saved_at={stores.editor.last_saved_at}
       index_progress={stores.search.index_progress}
       vault_name={stores.vault.vault?.name ?? null}
-      git_enabled={stores.git.enabled}
-      git_branch={stores.git.branch}
-      git_is_dirty={stores.git.is_dirty}
-      git_pending_files={stores.git.pending_files}
-      git_sync_status={stores.git.sync_status}
-      is_repairing_links={stores.op.is_pending("links.repair")}
-      link_repair_message={stores.op.get("links.repair").message}
       on_vault_click={() =>
         void action_registry.execute(ACTION_IDS.vault_request_change)}
       on_view_mode_click={() =>
         void action_registry.execute(ACTION_IDS.editor_toggle_source_mode)}
       on_info_click={() => (details_dialog_open = true)}
-      on_git_click={() =>
-        void action_registry.execute(ACTION_IDS.git_open_history)}
       on_sync_click={() =>
         void action_registry.execute(ACTION_IDS.vault_sync_index)}
     />

@@ -10,7 +10,7 @@ function note(path: string): NoteMeta {
     path: path as NotePath,
     name: path.split("/").pop()?.replace(".md", "") ?? "",
     title: path.split("/").pop()?.replace(".md", "") ?? "",
-    mtime_ms: 0,
+    version: null,
     size_bytes: 0,
   };
 }
@@ -97,16 +97,16 @@ describe("NotesStore.merge_folder_contents", () => {
 
     store.merge_folder_contents(
       "",
-      folder_contents([{ ...note("readme.md"), mtime_ms: 100 }], []),
+      folder_contents([{ ...note("readme.md"), version: "v100" }], []),
     );
 
     store.merge_folder_contents(
       "",
-      folder_contents([{ ...note("readme.md"), mtime_ms: 200 }], []),
+      folder_contents([{ ...note("readme.md"), version: "v200" }], []),
     );
 
     expect(store.notes).toHaveLength(1);
-    expect(store.notes[0]?.mtime_ms).toBe(200);
+    expect(store.notes[0]?.version).toBe("v200");
   });
 
   it("removes stale notes that are direct children of loaded folder", () => {

@@ -15,7 +15,6 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   create_new_note: ACTION_IDS.note_create,
   save_note: ACTION_IDS.note_request_save,
   toggle_source_mode: ACTION_IDS.editor_toggle_source_mode,
-  clean_up_legacy_markdown: ACTION_IDS.note_cleanup_markdown_request,
   change_vault: ACTION_IDS.vault_request_change,
   open_settings: ACTION_IDS.settings_open,
   open_theme_settings: ACTION_IDS.settings_open,
@@ -30,10 +29,6 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   sync_index: ACTION_IDS.vault_sync_index,
   reindex_vault: ACTION_IDS.vault_reindex,
   show_vault_dashboard: ACTION_IDS.ui_open_vault_dashboard,
-  git_version_history: ACTION_IDS.git_open_history,
-  git_create_checkpoint: ACTION_IDS.git_open_checkpoint,
-  git_init_repo: ACTION_IDS.git_init,
-  toggle_links_panel: ACTION_IDS.ui_toggle_context_rail,
 };
 
 const COMMAND_ACTION_ARGUMENTS: Partial<Record<CommandId, unknown[]>> = {
