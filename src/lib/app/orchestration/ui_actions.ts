@@ -10,6 +10,7 @@ export function register_ui_actions(input: ActionRegistrationInput) {
   function parse_sidebar_view(input_view: unknown): SidebarView {
     const value = String(input_view).trim();
     if (value === "overview") return "overview";
+    if (value === "annotations") return "annotations";
     if (value === "starred") {
       return "starred";
     }

@@ -13,4 +13,7 @@ export interface InfoHubPort {
     vault_id: VaultId,
     handlers: SyncStatusHandlers,
   ): () => void;
+  // The workspace path of an object, or null when the workspace has no
+  // object with this id.
+  object_path(id: string): Promise<string | null>;
 }

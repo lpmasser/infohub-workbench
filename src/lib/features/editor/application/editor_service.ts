@@ -1,4 +1,7 @@
-import type { FrontmatterOptions } from "@otterly/markdown-editor";
+import type {
+  AnnotationOptions,
+  FrontmatterOptions,
+} from "@otterly/markdown-editor";
 import type {
   BufferRestorePolicy,
   EditorPort,
@@ -32,6 +35,7 @@ function note_name_from_path(path: string): string {
 
 export type EditorServiceCallbacks = {
   resolve_frontmatter_reference?: FrontmatterOptions["resolve_id"];
+  annotations?: AnnotationOptions;
   on_reference_click?: (path: string) => void;
   on_internal_link_click: (
     raw_path: string,
@@ -60,36 +64,58 @@ export class EditorService {
   private active_note: OpenNoteState | null = null;
   private session_generation = 0;
   private navigation_revision = 0;
-  private pending_heading: { path: string; fragment: string } | null = null;
+  private pending_target: {
+    path: string;
+    target: { fragment: string } | { line: number };
+  } | null = null;
 
   refresh_frontmatter(): void {
     this.session?.refresh_frontmatter?.();
   }
 
   reveal_heading(path: string, fragment: string): void {
-    this.navigation_revision++;
-    this.pending_heading = { path, fragment };
-    this.apply_pending_heading();
+    this.reveal(path, { fragment });
   }
 
-  private apply_pending_heading(): void {
+  reveal_line(path: string, line: number): void {
+    this.reveal(path, { line });
+  }
+
+  // Applied once the note is in the editor, which may be after it opens.
+  private reveal(
+    path: string,
+    target: { fragment: string } | { line: number },
+  ): void {
+    this.navigation_revision++;
+    this.pending_target = { path, target };
+    this.apply_pending_target();
+  }
+
+  private apply_pending_target(): void {
     if (
-      !this.pending_heading ||
-      this.pending_heading.path !== this.active_note?.meta.path ||
+      !this.pending_target ||
+      this.pending_target.path !== this.active_note?.meta.path ||
       !this.session
     )
       return;
-    const request = this.pending_heading;
+    const request = this.pending_target;
     const session = this.session;
     requestAnimationFrame(() => {
-      if (this.pending_heading !== request) return;
-      this.pending_heading = null;
+      if (this.pending_target !== request) return;
+      this.pending_target = null;
       if (
-        this.session === session &&
-        this.active_note?.meta.path === request.path
+        this.session !== session ||
+        this.active_note?.meta.path !== request.path
       )
-        session.reveal_heading?.(request.fragment);
+        return;
+      if ("fragment" in request.target)
+        session.reveal_heading?.(request.target.fragment);
+      else session.reveal_line?.(request.target.line);
     });
+  }
+
+  insert_after_selected_block(text: string): boolean {
+    return this.session?.insert_after_selected_block?.(text) ?? false;
   }
 
   constructor(
@@ -152,7 +178,7 @@ export class EditorService {
       view_state,
     });
     this.focus();
-    this.apply_pending_heading();
+    this.apply_pending_target();
   }
 
   rename_buffer(old_note_path: NotePath, new_note_path: NotePath) {
@@ -206,14 +232,14 @@ export class EditorService {
     const session = this.session;
     const note = this.active_note;
     const navigation_revision = this.navigation_revision;
-    if (this.pending_heading?.path === note?.meta.path) return;
+    if (this.pending_target?.path === note?.meta.path) return;
     if (session?.set_scroll_top) {
       requestAnimationFrame(() => {
         if (
           this.session === session &&
           this.active_note === note &&
           this.navigation_revision === navigation_revision &&
-          !this.pending_heading
+          !this.pending_target
         )
           session.set_scroll_top?.(value);
       });
@@ -444,6 +470,9 @@ export class EditorService {
       root: host_root,
       resolve_frontmatter_reference:
         this.callbacks.resolve_frontmatter_reference,
+      ...(this.callbacks.annotations
+        ? { annotations: this.callbacks.annotations }
+        : {}),
       initial_markdown: active_note.markdown,
       note_path: active_note.meta.path,
       vault_id: this.vault_store.vault?.id ?? null,
@@ -456,7 +485,7 @@ export class EditorService {
     }
 
     this.session = next_session;
-    this.apply_pending_heading();
+    this.apply_pending_target();
   }
 
   private teardown_session() {

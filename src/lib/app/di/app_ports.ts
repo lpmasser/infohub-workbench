@@ -1,4 +1,6 @@
 import type { InfoHubPort } from "$lib/features/infohub";
+import type { AnnotationsPort } from "$lib/features/annotation";
+import type { LocationPort } from "$lib/features/deep_link";
 import type { AssetsPort, NotesPort } from "$lib/features/note";
 import type { ClipboardPort } from "$lib/features/clipboard";
 import type { EditorPort } from "$lib/features/editor";
@@ -11,6 +13,8 @@ import type { WatcherPort } from "$lib/features/watcher";
 
 export type Ports = {
   infohub: InfoHubPort;
+  annotations: AnnotationsPort;
+  location: LocationPort;
   vault: VaultPort;
   notes: NotesPort;
   index: WorkspaceIndexPort;

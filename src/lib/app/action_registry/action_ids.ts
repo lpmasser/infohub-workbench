@@ -1,6 +1,13 @@
 export const ACTION_IDS = {
   app_mounted: "app.mounted",
   app_sign_out: "app.sign_out",
+  deep_link_open: "deep_link.open",
+  annotation_request: "annotation.request",
+  annotation_update_text: "annotation.update_text",
+  annotation_confirm: "annotation.confirm",
+  annotation_cancel: "annotation.cancel",
+  annotation_open_entry: "annotation.open_entry",
+  annotation_refresh: "annotation.refresh",
   app_editor_mount: "app.editor.mount",
   app_editor_unmount: "app.editor.unmount",
 

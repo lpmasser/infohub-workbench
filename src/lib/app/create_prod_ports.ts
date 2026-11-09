@@ -1,4 +1,6 @@
 import { create_infohub_web_adapter } from "$lib/features/infohub";
+import { create_annotations_web_adapter } from "$lib/features/annotation";
+import { create_location_web_adapter } from "$lib/features/deep_link";
 import {
   create_assets_web_adapter,
   create_notes_web_adapter,
@@ -39,6 +41,8 @@ export function create_prod_ports(): { ports: Ports; session: WebSessionPort } {
     session: create_web_session_adapter(api, events),
     ports: {
       infohub: create_infohub_web_adapter(api, events),
+      annotations: create_annotations_web_adapter(api),
+      location: create_location_web_adapter(),
       vault: create_vault_web_adapter(api),
       notes: create_notes_web_adapter(files),
       index: create_workspace_index_web_adapter(files),

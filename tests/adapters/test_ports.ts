@@ -27,10 +27,20 @@ export function create_test_ports(): Ports {
           issues: [],
           projects: [],
         }),
+      object_path: () => Promise.resolve(null),
       watch_sync_status: (_vault_id, handlers) => {
         handlers.on_status({ version: 1, running: false, pending: {} });
         return () => {};
       },
+    },
+    location: {
+      current: () => new URL("http://localhost/"),
+      push: () => {},
+      replace: () => {},
+      on_history_move: () => () => {},
+    },
+    annotations: {
+      list: () => Promise.resolve({ entries: [], issues: [] }),
     },
     vault: create_test_vault_adapter(),
     notes: create_test_notes_adapter(),

@@ -26,7 +26,12 @@ import type {
 import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 type AsyncStatus = "idle" | "loading" | "error";
-export type SidebarView = "explorer" | "dashboard" | "starred" | "overview";
+export type SidebarView =
+  | "explorer"
+  | "dashboard"
+  | "starred"
+  | "overview"
+  | "annotations";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
@@ -84,6 +89,12 @@ const INITIAL_CROSS_VAULT_OPEN_CONFIRM = {
   target_vault_name: "",
   note_path: null,
 } as const;
+
+const INITIAL_ANNOTATION_DIALOG = {
+  open: false,
+  text: "",
+  error: null as string | null,
+};
 
 const INITIAL_HELP_DIALOG = {
   open: false,
@@ -249,6 +260,8 @@ export class UIStore {
 
   help_dialog = $state<{ open: boolean }>({ ...INITIAL_HELP_DIALOG });
 
+  annotation_dialog = $state({ ...INITIAL_ANNOTATION_DIALOG });
+
   vault_dashboard = $state<{
     open: boolean;
   }>({ ...INITIAL_VAULT_DASHBOARD });
@@ -395,6 +408,7 @@ export class UIStore {
     };
     this.cross_vault_open_confirm = { ...INITIAL_CROSS_VAULT_OPEN_CONFIRM };
     this.help_dialog = { ...INITIAL_HELP_DIALOG };
+    this.annotation_dialog = { ...INITIAL_ANNOTATION_DIALOG };
     this.vault_dashboard = { ...INITIAL_VAULT_DASHBOARD };
     this.tab_close_confirm = { ...INITIAL_TAB_CLOSE_CONFIRM };
   }

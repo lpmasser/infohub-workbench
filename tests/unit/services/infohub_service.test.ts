@@ -26,6 +26,7 @@ it("keeps sync markers independent of a slow overview and re-reads changes arriv
       source === "before"
         ? first.promise
         : Promise.resolve(infohub_overview(source)),
+    object_path: () => Promise.resolve(null),
     watch_sync_status: (_id, handlers) => {
       handlers.on_status({
         version: 1,
@@ -61,6 +62,7 @@ it("discards both old-vault responses after a switch without overwriting the new
         id === "a"
           ? old_overview.promise
           : Promise.resolve(infohub_overview("vault b")),
+      object_path: () => Promise.resolve(null),
       watch_sync_status: (id, handlers) => {
         watchers.set(id, handlers);
         return () => {};
@@ -96,6 +98,7 @@ it("reports a failed overview while sync continues and retries on the next overv
         failed
           ? Promise.reject(new Error("CLI unavailable"))
           : Promise.resolve(infohub_overview("recovered")),
+      object_path: () => Promise.resolve(null),
       watch_sync_status: (_id, handlers) => {
         handlers.on_status({
           version: 1,

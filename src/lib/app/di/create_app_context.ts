@@ -1,5 +1,7 @@
 import { untrack } from "svelte";
 import { InfoHubService } from "$lib/features/infohub";
+import { AnnotationService, parse_annotation } from "$lib/features/annotation";
+import { DeepLinkService } from "$lib/features/deep_link";
 import type { Ports } from "$lib/app/di/app_ports";
 import { create_app_stores } from "$lib/app/bootstrap/create_app_stores";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
@@ -27,6 +29,8 @@ export function create_app_context(input: {
   ports: Ports;
   now_ms?: () => number;
   default_mount_config: AppMountConfig;
+  // The signed-in user: the author of new annotations.
+  username: string;
   // Ends the server session.
   sign_out: () => Promise<void>;
 }) {
@@ -36,6 +40,20 @@ export function create_app_context(input: {
   const infohub_service = new InfoHubService(
     input.ports.infohub,
     stores.infohub,
+  );
+
+  const annotation_service = new AnnotationService(
+    input.ports.annotations,
+    stores.annotation,
+    stores.vault,
+    input.username,
+    now_ms,
+  );
+
+  const deep_link_service = new DeepLinkService(
+    input.ports.location,
+    input.ports.infohub,
+    stores.deep_link,
   );
 
   const search_service = new SearchService(
@@ -62,6 +80,13 @@ export function create_app_context(input: {
             ? references[id]
             : undefined;
         }),
+      annotations: {
+        label: "批注",
+        parse: parse_annotation,
+        can_remove: (note) => annotation_service.is_own(note.author),
+        on_request: () =>
+          void action_registry.execute(ACTION_IDS.annotation_request),
+      },
       on_reference_click: (path) =>
         void action_registry.execute(ACTION_IDS.note_open, path),
       on_internal_link_click: (raw_path, base_note_path, fragment) =>
@@ -182,6 +207,8 @@ export function create_app_context(input: {
       vault: vault_service,
       note: note_service,
       folder: folder_service,
+      annotation: annotation_service,
+      deep_link: deep_link_service,
       settings: settings_service,
       search: search_service,
       editor: editor_service,
@@ -219,6 +246,9 @@ export function create_app_context(input: {
 
   const cleanup_reactors = mount_reactors({
     infohub_service,
+    annotation_service,
+    deep_link_service,
+    deep_link_store: stores.deep_link,
     infohub_store: stores.infohub,
     editor_store: stores.editor,
     ui_store: stores.ui,
