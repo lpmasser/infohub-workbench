@@ -21,6 +21,7 @@ import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.
 import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { is_tauri } from "$lib/shared/utils/detect_platform";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
 import type { OpStore } from "$lib/app";
@@ -154,7 +155,10 @@ export function mount_reactors(context: ReactorContext): () => void {
     create_window_title_reactor(
       context.vault_store,
       context.tab_store,
-      (title) => void getCurrentWindow().setTitle(title),
+      (title) => {
+        if (is_tauri) void getCurrentWindow().setTitle(title);
+        else document.title = title;
+      },
     ),
     create_watcher_reactor(
       context.vault_store,

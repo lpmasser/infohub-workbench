@@ -1,3 +1,4 @@
+import { is_web_build } from "$lib/app/runtime_target";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import { reveal_in_file_manager_label } from "$lib/shared/utils/file_manager_label";
@@ -106,6 +107,8 @@ export function register_ui_actions(input: ActionRegistrationInput) {
     id: ACTION_IDS.ui_toggle_context_rail,
     label: "Toggle Links Panel",
     shortcut: "CmdOrCtrl+Shift+L",
+    // Backlinks need the desktop link index.
+    when: () => !is_web_build,
     execute: () => {
       stores.ui.toggle_context_rail();
     },

@@ -1,0 +1,212 @@
+import {
+  WebApi,
+  WebApiError,
+  WORKSPACE_SOURCE,
+  file_url,
+  type WebSourceId,
+} from "$lib/shared/adapters/web/web_api";
+
+export type WebTree = {
+  // File path -> size in bytes.
+  files: Map<string, number>;
+  directories: Set<string>;
+  commit: string | null;
+};
+
+export type WebFileRead = {
+  bytes: Uint8Array;
+  etag: string;
+  content_type: string;
+};
+
+export type WebFileChange = { path: string; version: string | null };
+
+export type ClassifiedChange = {
+  path: string;
+  kind: "added" | "changed" | "removed";
+};
+
+type TreeResponse = {
+  version: 1;
+  commit: string | null;
+  entries: Array<{ path: string; type: string; size?: number }>;
+};
+
+type WriteResponse = { version: 1; etag: string; unchanged?: boolean };
+type MoveResponse = { version: 1; path: string; etag: string };
+
+function validate_tree(value: TreeResponse): WebTree {
+  if (!Array.isArray(value.entries))
+    throw new Error("InfoHub 目录树响应无效，请刷新页面或更新前端");
+  const files = new Map<string, number>();
+  const directories = new Set<string>();
+  for (const entry of value.entries) {
+    if (entry.type === "directory") directories.add(entry.path);
+    else if (entry.type === "file") files.set(entry.path, entry.size ?? 0);
+    else throw new Error("InfoHub 目录树响应无效，请刷新页面或更新前端");
+  }
+  return { files, directories, commit: value.commit };
+}
+
+function key(source: WebSourceId, path: string): string {
+  return `${source}\0${path}`;
+}
+
+// Files of every source, plus the client-side bookkeeping that the ports need:
+// the services track a numeric version per open note, the server versions
+// files with ETags. Each ETag the client has seen for a path gets a stable
+// token, so "is this still the version I loaded?" keeps working.
+export class WebFiles {
+  private readonly trees = new Map<WebSourceId, Promise<WebTree>>();
+  private readonly token_versions = new Map<
+    number,
+    { key: string; etag: string }
+  >();
+  private readonly tokens_by_version = new Map<string, number>();
+  private readonly latest_tokens = new Map<string, number>();
+  private last_token = 0;
+
+  constructor(readonly api: WebApi) {}
+
+  tree(source: WebSourceId): Promise<WebTree> {
+    let tree = this.trees.get(source);
+    if (!tree) {
+      const pending = this.api
+        .get_json<TreeResponse>("/api/tree", 1, { source })
+        .then(validate_tree);
+      tree = pending;
+      this.trees.set(source, pending);
+      pending.catch(() => {
+        if (this.trees.get(source) === pending) this.trees.delete(source);
+      });
+    }
+    return tree;
+  }
+
+  invalidate_tree(source?: WebSourceId): void {
+    if (source === undefined) this.trees.clear();
+    else this.trees.delete(source);
+  }
+
+  // Classifies workspace change events against the tree the client last saw,
+  // then drops that tree so the next reader fetches the final state.
+  async classify_workspace_changes(
+    changes: WebFileChange[],
+  ): Promise<ClassifiedChange[]> {
+    const tree = this.trees.get(WORKSPACE_SOURCE);
+    const known = tree ? await tree.catch(() => null) : null;
+    this.invalidate_tree(WORKSPACE_SOURCE);
+    return changes.map((change) => ({
+      path: change.path,
+      kind:
+        change.version === null
+          ? "removed"
+          : known && !known.files.has(change.path)
+            ? "added"
+            : "changed",
+    }));
+  }
+
+  version_token(source: WebSourceId, path: string, etag: string): number {
+    const file_key = key(source, path);
+    const version_key = `${file_key}\0${etag}`;
+    let token = this.tokens_by_version.get(version_key);
+    if (token === undefined) {
+      // Tokens double as the "last saved" time the editor shows.
+      token = Math.max(Date.now(), this.last_token + 1);
+      this.last_token = token;
+      this.tokens_by_version.set(version_key, token);
+      this.token_versions.set(token, { key: file_key, etag });
+    }
+    this.latest_tokens.set(file_key, token);
+    return token;
+  }
+
+  version_etag(
+    source: WebSourceId,
+    path: string,
+    token: number,
+  ): string | null {
+    const version = this.token_versions.get(token);
+    return version && version.key === key(source, path) ? version.etag : null;
+  }
+
+  latest_etag(source: WebSourceId, path: string): string | null {
+    const token = this.latest_tokens.get(key(source, path));
+    return token === undefined ? null : this.version_etag(source, path, token);
+  }
+
+  forget(source: WebSourceId, path: string): void {
+    this.latest_tokens.delete(key(source, path));
+  }
+
+  async read(source: WebSourceId, path: string): Promise<WebFileRead> {
+    const response = await this.api.request("GET", file_url(source, path));
+    const etag = response.headers.get("ETag");
+    if (!etag) throw new Error("InfoHub 文件响应缺少版本");
+    return {
+      bytes: new Uint8Array(await response.arrayBuffer()),
+      etag,
+      content_type: response.headers.get("Content-Type") ?? "",
+    };
+  }
+
+  // The current ETag, or null when the file does not exist.
+  async current_version(path: string): Promise<string | null> {
+    try {
+      return (await this.read(WORKSPACE_SOURCE, path)).etag;
+    } catch (error) {
+      if (error instanceof WebApiError && error.status === 404) return null;
+      throw error;
+    }
+  }
+
+  async write(
+    path: string,
+    bytes: Uint8Array,
+    condition: { if_match: string } | { create: true },
+  ): Promise<string> {
+    const response = await this.api.json<WriteResponse>(
+      "PUT",
+      file_url(WORKSPACE_SOURCE, path),
+      1,
+      {
+        headers:
+          "create" in condition
+            ? { "If-None-Match": "*" }
+            : { "If-Match": condition.if_match },
+        body: bytes as Uint8Array<ArrayBuffer>,
+      },
+    );
+    this.invalidate_tree(WORKSPACE_SOURCE);
+    return response.etag;
+  }
+
+  async remove(path: string, if_match: string): Promise<void> {
+    await this.api.json("DELETE", file_url(WORKSPACE_SOURCE, path), 1, {
+      headers: { "If-Match": if_match },
+    });
+    this.forget(WORKSPACE_SOURCE, path);
+    this.invalidate_tree(WORKSPACE_SOURCE);
+  }
+
+  async move(
+    path: string,
+    destination: string,
+    if_match: string,
+    destination_version: string | null,
+  ): Promise<string> {
+    const response = await this.api.post_json<MoveResponse>(
+      "/api/move",
+      1,
+      { path, destination, destinationVersion: destination_version },
+      {
+        query: { source: WORKSPACE_SOURCE },
+        headers: { "If-Match": if_match },
+      },
+    );
+    this.forget(WORKSPACE_SOURCE, path);
+    this.invalidate_tree(WORKSPACE_SOURCE);
+    return response.etag;
+  }
+}

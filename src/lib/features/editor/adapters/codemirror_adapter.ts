@@ -2,7 +2,7 @@ import {
   Compartment,
   EditorSelection,
   Text,
-  type EditorState,
+  EditorState,
   type Extension,
 } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -74,7 +74,14 @@ type AdapterOptions = {
   copy_text: (text: string) => Promise<void>;
   // Outside a vault (a document window), relative images resolve here.
   resolve_document_asset_url?: (relative_path: string) => string;
+  // Buffers of a read-only vault (a web source other than the workspace)
+  // can be read, selected and followed, but not changed.
+  is_read_only_vault?: (vault_id: VaultId | null) => boolean;
 };
+const read_only_buffer: Extension = [
+  EditorState.readOnly.of(true),
+  EditorView.editable.of(false),
+];
 type BufferEntry = {
   note_path: string;
   vault_id: VaultId | null;
@@ -461,14 +468,17 @@ export function create_codemirror_editor_port(
         initial_markdown: string;
       }): BufferEntry {
         const is_markdown = is_markdown_path(input.note_path);
+        const buffer_extensions = options.is_read_only_vault?.(input.vault_id)
+          ? [extensions, read_only_buffer]
+          : extensions;
         let state = is_markdown
           ? create_markdown_state(input.initial_markdown, {
               plugins,
-              extensions,
+              extensions: buffer_extensions,
               source_extensions: syntaxHighlighting(markdown_source_highlight),
             })
           : create_text_state(input.initial_markdown, [
-              extensions,
+              buffer_extensions,
               text_language.of([]),
               syntaxHighlighting(code_block_highlight),
             ]);

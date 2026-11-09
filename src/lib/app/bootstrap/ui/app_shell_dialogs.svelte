@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     VaultDialog,
+    SourceDialog,
     VaultDashboardDialog,
     ConfirmVaultSwitchDialog,
     ConfirmCrossVaultOpenDialog,
@@ -25,6 +26,7 @@
   import { HotkeyRecorderDialog } from "$lib/features/hotkey";
   import HelpDialog from "$lib/app/bootstrap/ui/help_dialog.svelte";
   import { use_app_context } from "$lib/app/context/app_context.svelte";
+  import { is_web_build } from "$lib/app/runtime_target";
   import { ACTION_IDS } from "$lib/app";
   import type { OmnibarItem } from "$lib/shared/types/search";
   import type { OmnibarScope } from "$lib/shared/types/search";
@@ -101,7 +103,22 @@
   });
 </script>
 
-{#if has_vault}
+{#if has_vault && is_web_build}
+  <SourceDialog
+    open={stores.ui.change_vault.open}
+    on_open_change={(open) => {
+      if (!open) {
+        void action_registry.execute(ACTION_IDS.vault_close_change);
+      }
+    }}
+    sources={stores.vault.recent_vaults}
+    current_source_id={stores.vault.vault?.id ?? null}
+    is_loading={stores.ui.change_vault.is_loading}
+    error={stores.ui.change_vault.error}
+    on_select_source={(vault_id: VaultId) =>
+      void action_registry.execute(ACTION_IDS.vault_select, vault_id)}
+  />
+{:else if has_vault}
   <VaultDialog
     open={stores.ui.change_vault.open}
     on_open_change={(open) => {

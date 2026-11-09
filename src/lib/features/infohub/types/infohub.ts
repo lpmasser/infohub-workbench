@@ -10,7 +10,7 @@ export type Overview = {
   references: Record<string, { title: string; path: string }>;
   needsAction: Array<{
     object: HubObject;
-    category: "等我拍板" | "卡住了";
+    category: "卡住了" | "等我拍板" | "停滞";
     reason: string;
   }>;
   projects: Array<{

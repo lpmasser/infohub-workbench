@@ -96,12 +96,13 @@ export function register_vault_actions(input: ActionRegistrationInput) {
   registry.register({
     id: ACTION_IDS.vault_request_change,
     label: "Request Change Vault",
-    execute: () => {
+    execute: async () => {
       stores.ui.change_vault = {
         ...stores.ui.change_vault,
         open: true,
         error: null,
       };
+      await services.vault.refresh_vault_list();
     },
   });
 

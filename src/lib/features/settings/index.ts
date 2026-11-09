@@ -5,6 +5,7 @@ export {
 export { SettingsService } from "$lib/features/settings/application/settings_service";
 export type { SettingsPort } from "$lib/features/settings/ports";
 export { create_settings_tauri_adapter } from "$lib/features/settings/adapters/settings_tauri_adapter";
+export { create_settings_web_adapter } from "$lib/features/settings/adapters/settings_web_adapter";
 export {
   SETTINGS_REGISTRY,
   type SettingDefinition,

@@ -9,6 +9,8 @@ export type {
 } from "$lib/features/search/ports";
 export { create_search_tauri_adapter } from "$lib/features/search/adapters/search_tauri_adapter";
 export { create_workspace_index_tauri_adapter } from "$lib/features/search/adapters/workspace_index_tauri_adapter";
+export { create_search_web_adapter } from "$lib/features/search/adapters/search_web_adapter";
+export { create_workspace_index_web_adapter } from "$lib/features/search/adapters/workspace_index_web_adapter";
 export { default as Omnibar } from "$lib/features/search/ui/omnibar.svelte";
 export { default as FindInFileBar } from "$lib/features/search/ui/find_in_file_bar.svelte";
 export type {

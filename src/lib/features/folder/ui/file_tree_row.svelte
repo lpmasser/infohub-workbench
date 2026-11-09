@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { is_web_build } from "$lib/app/runtime_target";
   import { SyncMarker } from "$lib/features/infohub";
   import type { FlatTreeNode } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
@@ -446,7 +447,9 @@
               onSelect={() => on_open_in_default_app(node.path)}
             >
               <ExternalLink class="mr-2 h-4 w-4" />
-              <span>Open in Default App</span>
+              <span
+                >{is_web_build ? "在新标签页打开" : "Open in Default App"}</span
+              >
             </ContextMenu.Item>
           {/if}
           {#if on_request_rename || on_request_delete}

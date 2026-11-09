@@ -155,6 +155,16 @@ export class VaultService {
     }
   }
 
+  // The vault list can change while the app runs (web drafts come and go).
+  async refresh_vault_list(): Promise<void> {
+    try {
+      const recent_vaults = await this.vault_port.list_vaults();
+      this.vault_store.set_recent_vaults(recent_vaults);
+    } catch (error) {
+      log.error("Refresh vault list failed", { error: error_message(error) });
+    }
+  }
+
   async choose_vault_path(): Promise<VaultChoosePathResult> {
     try {
       const vault_path = await this.vault_port.choose_vault();

@@ -642,6 +642,11 @@ export function register_folder_actions(input: ActionRegistrationInput) {
             loaded_paths.add(path);
           }
         }
+        // A refresh that overlaps another one sees that one's fresh, mostly
+        // empty load states; expanded folders must still come back loaded.
+        for (const path of current_filetree.expanded_paths) {
+          loaded_paths.add(path);
+        }
 
         stores.ui.filetree = {
           expanded_paths: new SvelteSet(current_filetree.expanded_paths),

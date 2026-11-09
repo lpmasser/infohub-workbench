@@ -1,4 +1,8 @@
-/** Filesystem event emitted by the Rust watcher backend via Tauri event subscription. */
+/**
+ * Change in the open vault. The desktop watcher reports single files; the web
+ * event stream can also report that it lost track ("resynced"), after which
+ * every displayed snapshot has to be read again.
+ */
 export type VaultFsEvent =
   | {
       type: "note_changed_externally";
@@ -14,4 +18,8 @@ export type VaultFsEvent =
       type: "note_removed";
       vault_id: string;
       note_path: string;
+    }
+  | {
+      type: "vault_resynced";
+      vault_id: string;
     };

@@ -72,6 +72,13 @@
     width: 100%;
   }
 
+  @media (max-width: 640px) {
+    .NoteEditor {
+      --editor-padding-x: var(--space-4);
+      --editor-padding-y: var(--space-5);
+    }
+  }
+
   .NoteEditor__empty {
     display: flex;
     align-items: center;

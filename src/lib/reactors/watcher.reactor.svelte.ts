@@ -9,6 +9,7 @@ import type { VaultFsEvent } from "$lib/features/watcher";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import { paths_equal_ignore_case } from "$lib/shared/utils/path";
 import { as_note_path, type NotePath } from "$lib/shared/types/ids";
+import { is_draft_note_path } from "$lib/shared/utils/draft_note_path";
 
 const TREE_REFRESH_DEBOUNCE_MS = 300;
 
@@ -21,6 +22,7 @@ export type WatcherEventDecision =
   | { action: "refresh_tree" }
   | { action: "clear_and_refresh"; note_path: NotePath }
   | { action: "remove_background_tab_and_refresh"; note_path: NotePath }
+  | { action: "resync"; open_note_path: NotePath | null }
   | { action: "ignore" };
 
 export function resolve_watcher_event_decision(
@@ -35,6 +37,14 @@ export function resolve_watcher_event_decision(
   }
 
   switch (event.type) {
+    case "vault_resynced":
+      return {
+        action: "resync",
+        open_note_path:
+          open_note_path && !is_draft_note_path(open_note_path)
+            ? as_note_path(open_note_path)
+            : null,
+      };
     case "note_changed_externally": {
       const np = as_note_path(event.note_path);
       if (
@@ -107,6 +117,13 @@ export function create_watcher_reactor(
       return { is_dirty: tab.is_dirty };
     }
 
+    function refresh_open_note(note_path: NotePath, vault_id: string) {
+      void note_service.refresh_external_note(note_path).then((conflict) => {
+        if (conflict && vault_store.vault?.id === vault_id)
+          tab_service.mark_conflict(note_path);
+      });
+    }
+
     function handle_event(event: VaultFsEvent) {
       if (event.vault_id !== vault_store.vault?.id) return;
       debounced_tree_refresh();
@@ -125,12 +142,7 @@ export function create_watcher_reactor(
           if (event.type === "note_removed") {
             tab_service.mark_conflict(decision.note_path);
           } else if (editor_store.open_note?.meta.path === decision.note_path) {
-            void note_service
-              .refresh_external_note(decision.note_path)
-              .then((conflict) => {
-                if (conflict && vault_store.vault?.id === event.vault_id)
-                  tab_service.mark_conflict(decision.note_path);
-              });
+            refresh_open_note(decision.note_path, event.vault_id);
           } else {
             tab_service.mark_conflict(decision.note_path);
           }
@@ -150,6 +162,17 @@ export function create_watcher_reactor(
         case "remove_background_tab_and_refresh":
           tab_service.remove_tab(decision.note_path);
           debounced_tree_refresh();
+          break;
+        case "resync":
+          // Re-read what is shown. A background tab with unsaved text keeps
+          // it; its save is still checked against the version it was based on.
+          if (decision.open_note_path)
+            refresh_open_note(decision.open_note_path, event.vault_id);
+          for (const tab of tab_store.tabs) {
+            if (tab.id === tab_store.active_tab_id || tab.is_dirty) continue;
+            tab_service.invalidate_cache(tab.note_path);
+            note_service.invalidate_external_buffer(tab.note_path);
+          }
           break;
         case "ignore":
           break;

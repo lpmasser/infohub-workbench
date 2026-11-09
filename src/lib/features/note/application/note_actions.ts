@@ -697,7 +697,8 @@ export function register_note_actions(input: ActionRegistrationInput) {
       id: ACTION_IDS.note_request_save,
       label: "Save Note",
       shortcut: "CmdOrCtrl+S",
-      when: when_vault_open,
+      // A read-only web source has nothing to save.
+      when: () => when_vault_open() && !stores.vault.vault?.read_only,
       execute: async (payload?: unknown) => {
         const open_note = stores.editor.open_note;
         if (!open_note) {
