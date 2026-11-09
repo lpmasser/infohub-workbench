@@ -13,9 +13,6 @@ import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 
 const { reactors } = vi.hoisted(() => ({ reactors: vi.fn() }));
 vi.mock("$lib/reactors", () => ({ mount_reactors: reactors }));
-vi.mock("$lib/app/orchestration/app_exit", () => ({
-  install_app_exit: () => () => {},
-}));
 
 it("a property reference reaches the real note-open action with its exact mapped path", async () => {
   reactors.mockReturnValue(() => {});
@@ -26,6 +23,7 @@ it("a property reference reaches the real note-open action with its exact mapped
       reset_app_state: false,
       bootstrap_default_vault_path: null,
     },
+    sign_out: () => Promise.resolve(),
   });
   const context = reactors.mock.calls[0]?.[0] as ReactorContext;
   const vault = create_test_vault();

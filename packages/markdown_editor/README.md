@@ -2,7 +2,7 @@
 
 A plugin-driven, source-preserving Markdown editor on CodeMirror 6. Markdown stays the document: rich rendering is decoration over the text, and saving reads the original source byte for byte. Plugins add syntax, rendering, and editing behavior.
 
-It has no Svelte, Tauri, filesystem, or application-store dependency. It is developed inside Otterly and is not published yet.
+It has no Svelte, server, filesystem, or application-store dependency. It is developed inside InfoHub Workbench (forked from Otterly) and is not published yet.
 
 Read [DESIGN.md](DESIGN.md) for the model: constructs, context, layers, surfaces, and the reveal rules.
 

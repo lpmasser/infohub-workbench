@@ -269,9 +269,6 @@ export class SearchService {
     const seen_ids = new Set<string>();
 
     for (const vault of this.vault_store.recent_vaults) {
-      if (vault.is_available === false) {
-        continue;
-      }
       const key = String(vault.id);
       if (seen_ids.has(key)) {
         continue;
@@ -281,7 +278,7 @@ export class SearchService {
     }
 
     const active_vault = this.vault_store.vault;
-    if (active_vault && active_vault.is_available !== false) {
+    if (active_vault) {
       const key = String(active_vault.id);
       if (!seen_ids.has(key)) {
         ordered_vaults.unshift(active_vault);
@@ -588,7 +585,6 @@ export class SearchService {
         vault_path: vault.path,
         vault_note_count: vault.note_count ?? null,
         vault_last_opened_at: vault.last_opened_at ?? null,
-        vault_is_available: vault.is_available !== false,
         results: result.value,
       });
     }

@@ -26,18 +26,14 @@
     on_select_folder: (path: string) => void;
     on_request_delete?: ((note: NoteMeta) => void) | undefined;
     on_request_rename?: ((note: NoteMeta) => void) | undefined;
-    on_request_delete_folder?: ((folder_path: string) => void) | undefined;
-    on_request_rename_folder?: ((folder_path: string) => void) | undefined;
     on_request_create_note?: (() => void) | undefined;
-    on_request_create_folder?: ((folder_path: string) => void) | undefined;
     on_toggle_star?:
       | ((payload: { paths: string[]; all_starred: boolean }) => void)
       | undefined;
     scoped_root_path?: string | null;
     on_scope_to_folder?: ((folder_path: string) => void) | undefined;
     on_clear_scope?: (() => void) | undefined;
-    on_reveal_in_file_manager?: ((path: string) => void) | undefined;
-    on_open_in_default_app?: ((path: string) => void) | undefined;
+    on_open_file?: ((path: string) => void) | undefined;
     on_retry_load: (path: string) => void;
     on_load_more: (folder_path: string) => void;
     on_retry_load_more: (folder_path: string) => void;
@@ -62,16 +58,12 @@
     on_select_folder,
     on_request_delete,
     on_request_rename,
-    on_request_delete_folder,
-    on_request_rename_folder,
     on_request_create_note,
-    on_request_create_folder,
     on_toggle_star,
     scoped_root_path = null,
     on_scope_to_folder,
     on_clear_scope,
-    on_reveal_in_file_manager,
-    on_open_in_default_app,
+    on_open_file,
     on_retry_load,
     on_load_more,
     on_retry_load_more,
@@ -417,16 +409,12 @@
             {on_select_folder}
             {on_request_delete}
             {on_request_rename}
-            {on_request_delete_folder}
-            {on_request_rename_folder}
             {on_request_create_note}
-            {on_request_create_folder}
             on_toggle_star={on_toggle_star ? handle_toggle_star : undefined}
             {scoped_root_path}
             {on_scope_to_folder}
             {on_clear_scope}
-            {on_reveal_in_file_manager}
-            {on_open_in_default_app}
+            {on_open_file}
             selection_count={selected_items.length}
             {all_selected_starred}
             {on_retry_load}

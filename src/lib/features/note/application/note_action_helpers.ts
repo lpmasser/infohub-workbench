@@ -1,3 +1,4 @@
+import { DEFAULT_ATTACHMENT_FOLDER } from "$lib/features/note/domain/attachment_folder";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import {
   as_note_path,
@@ -104,7 +105,9 @@ export function get_asset_write_options(settings: EditorSettings): {
   if (settings.store_attachments_with_note) {
     return { store_with_note: true };
   }
-  return { attachment_folder: settings.attachment_folder || ".assets" };
+  return {
+    attachment_folder: settings.attachment_folder || DEFAULT_ATTACHMENT_FOLDER,
+  };
 }
 
 export async function save_and_insert_image(

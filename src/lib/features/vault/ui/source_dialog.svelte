@@ -4,7 +4,7 @@
   import type { Vault } from "$lib/shared/types/vault";
   import type { VaultId } from "$lib/shared/types/ids";
 
-  // The web build's sources: the user's workspace (writable), main and the
+  // The sources: the user's workspace (writable), main and the
   // other copies' unpushed drafts (read-only).
   interface Props {
     open: boolean;

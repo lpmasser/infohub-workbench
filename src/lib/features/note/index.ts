@@ -1,8 +1,5 @@
 export { register_note_actions } from "$lib/features/note/application/note_actions";
 export { NoteService } from "$lib/features/note/application/note_service";
-export { LegacyMarkdownCleanupService } from "$lib/features/note/application/legacy_markdown_cleanup_service";
-export { clean_legacy_markdown } from "$lib/features/note/domain/legacy_markdown_cleanup";
-export type { LegacyCleanupPreview } from "$lib/features/note/application/legacy_markdown_cleanup_service";
 export { NotesStore } from "$lib/features/note/state/note_store.svelte";
 export {
   ensure_open_note,
@@ -20,21 +17,17 @@ export { extract_note_title } from "$lib/features/note/domain/extract_note_title
 export type {
   AssetsPort,
   FolderStats,
-  MarkdownCleanupBackupInfo,
   NotesPort,
   WriteImageAssetInput,
 } from "$lib/features/note/ports";
-export { create_notes_tauri_adapter } from "$lib/features/note/adapters/notes_tauri_adapter";
 export { create_notes_web_adapter } from "$lib/features/note/adapters/notes_web_adapter";
 export { create_assets_web_adapter } from "$lib/features/note/adapters/assets_web_adapter";
-export { create_assets_tauri_adapter } from "$lib/features/note/adapters/assets_tauri_adapter";
 export { default as NoteEditor } from "$lib/features/note/ui/note_editor.svelte";
 export { default as NoteDetailsDialog } from "$lib/features/note/ui/note_details_dialog.svelte";
 export { default as DeleteNoteDialog } from "$lib/features/note/ui/delete_note_dialog.svelte";
 export { default as RenameNoteDialog } from "$lib/features/note/ui/rename_note_dialog.svelte";
 export { default as SaveNoteDialog } from "$lib/features/note/ui/save_note_dialog.svelte";
 export { default as ImagePasteDialog } from "$lib/features/note/ui/image_paste_dialog.svelte";
-export { default as LegacyMarkdownCleanupDialog } from "$lib/features/note/ui/legacy_markdown_cleanup_dialog.svelte";
 export type { NoteMeta, NoteDoc } from "$lib/shared/types/note";
 export type {
   NoteOpenResult,

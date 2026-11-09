@@ -1,10 +1,6 @@
-export {
-  register_settings_actions,
-  register_editor_zoom_actions,
-} from "$lib/features/settings/application/settings_actions";
+export { register_settings_actions } from "$lib/features/settings/application/settings_actions";
 export { SettingsService } from "$lib/features/settings/application/settings_service";
 export type { SettingsPort } from "$lib/features/settings/ports";
-export { create_settings_tauri_adapter } from "$lib/features/settings/adapters/settings_tauri_adapter";
 export { create_settings_web_adapter } from "$lib/features/settings/adapters/settings_web_adapter";
 export {
   SETTINGS_REGISTRY,

@@ -41,15 +41,12 @@ describe("VaultService", () => {
     const open_b = create_deferred<Vault>();
 
     const vault_port = {
-      choose_vault: vi.fn(),
-      open_vault: vi.fn((vault_path: string) => {
-        if (vault_path === vault_a.path) return open_a.promise;
+      open_vault: vi.fn(),
+      open_vault_by_id: vi.fn((vault_id: string) => {
+        if (vault_id === vault_a.id) return open_a.promise;
         return open_b.promise;
       }),
-      open_vault_by_id: vi.fn(),
       list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
-      remember_last_vault: vi.fn().mockResolvedValue(undefined),
-      get_last_vault_id: vi.fn().mockResolvedValue(null),
     };
 
     const notes_port = {
@@ -61,7 +58,7 @@ describe("VaultService", () => {
               path: as_note_path(`${vault_id}/alpha.md`),
               name: "alpha",
               title: "alpha",
-              mtime_ms: 0,
+              version: null,
               size_bytes: 0,
             },
           ],
@@ -124,8 +121,8 @@ describe("VaultService", () => {
       () => 1,
     );
 
-    const first = service.change_vault_by_path(vault_a.path);
-    const second = service.change_vault_by_path(vault_b.path);
+    const first = service.change_vault_by_id(vault_a.id);
+    const second = service.change_vault_by_id(vault_b.id);
 
     open_b.resolve(vault_b);
     const second_result = await second;
@@ -148,12 +145,9 @@ describe("VaultService", () => {
     };
 
     const vault_port = {
-      choose_vault: vi.fn(),
-      open_vault: vi.fn().mockResolvedValue(vault),
-      open_vault_by_id: vi.fn(),
+      open_vault: vi.fn(),
+      open_vault_by_id: vi.fn().mockResolvedValue(vault),
       list_vaults: vi.fn().mockResolvedValue([vault]),
-      remember_last_vault: vi.fn().mockResolvedValue(undefined),
-      get_last_vault_id: vi.fn().mockResolvedValue(null),
     };
 
     const notes_port = {
@@ -206,7 +200,7 @@ describe("VaultService", () => {
       () => 1,
     );
 
-    const result = await service.change_vault_by_path(vault.path);
+    const result = await service.change_vault_by_id(vault.id);
     expect(result.status).toBe("opened");
     expect(index_port.sync_index).toHaveBeenCalledTimes(1);
   });
@@ -221,12 +215,9 @@ describe("VaultService", () => {
     };
 
     const vault_port = {
-      choose_vault: vi.fn(),
       open_vault: vi.fn(),
       open_vault_by_id: vi.fn().mockRejectedValue(new Error(unavailable_error)),
       list_vaults: vi.fn().mockResolvedValue([vault_a]),
-      remember_last_vault: vi.fn(),
-      get_last_vault_id: vi.fn(),
     };
 
     const service = new VaultService(
@@ -282,12 +273,9 @@ describe("VaultService", () => {
 
     const service = new VaultService(
       {
-        choose_vault: vi.fn(),
         open_vault: vi.fn(),
         open_vault_by_id: vi.fn(),
         list_vaults: vi.fn(),
-        remember_last_vault: vi.fn(),
-        get_last_vault_id: vi.fn(),
       } as never,
       { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       {
@@ -331,247 +319,6 @@ describe("VaultService", () => {
     );
   });
 
-  it("toggles vault pin and persists pinned IDs", async () => {
-    const vault_a: Vault = {
-      id: as_vault_id("vault-a"),
-      name: "Vault A",
-      path: as_vault_path("/vault/a"),
-      created_at: 1,
-    };
-    const vault_b: Vault = {
-      id: as_vault_id("vault-b"),
-      name: "Vault B",
-      path: as_vault_path("/vault/b"),
-      created_at: 1,
-    };
-
-    const settings_port = {
-      get_setting: vi.fn().mockResolvedValue([vault_b.id]),
-      set_setting: vi.fn().mockResolvedValue(undefined),
-    };
-
-    const service = new VaultService(
-      {
-        choose_vault: vi.fn(),
-        open_vault: vi.fn().mockResolvedValue(vault_a),
-        open_vault_by_id: vi.fn(),
-        list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
-        remember_last_vault: vi.fn(),
-        get_last_vault_id: vi.fn(),
-      } as never,
-      {
-        list_folder_contents: vi.fn().mockResolvedValue({
-          notes: [],
-          subfolders: [],
-          total_count: 0,
-          has_more: false,
-        }),
-        get_folder_stats: vi.fn().mockResolvedValue({
-          note_count: 0,
-          folder_count: 0,
-        }),
-      } as never,
-      {
-        cancel_index: vi.fn(),
-        sync_index: vi.fn().mockResolvedValue(undefined),
-        rebuild_index: vi.fn(),
-        upsert_note: vi.fn(),
-        remove_note: vi.fn(),
-        remove_notes: vi.fn(),
-        remove_notes_by_prefix: vi.fn(),
-        rename_note_path: vi.fn(),
-        rename_folder_paths: vi.fn(),
-        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      settings_port as never,
-      {
-        get_vault_setting: vi.fn().mockResolvedValue(null),
-        set_vault_setting: vi.fn().mockResolvedValue(undefined),
-        delete_vault_setting: vi.fn(),
-      } as never,
-
-      new VaultStore(),
-      new NotesStore(),
-      new EditorStore(),
-      new OpStore(),
-      new SearchStore(),
-      () => 1,
-    );
-
-    const open_result = await service.change_vault_by_path(vault_a.path);
-    expect(open_result.status).toBe("opened");
-
-    const toggle_result = await service.toggle_vault_pin(vault_a.id);
-    expect(toggle_result.status).toBe("success");
-    expect(settings_port.set_setting).toHaveBeenLastCalledWith(
-      "pinned_vault_ids",
-      [vault_b.id, vault_a.id],
-    );
-
-    const untoggle_result = await service.toggle_vault_pin(vault_b.id);
-    expect(untoggle_result.status).toBe("success");
-    expect(settings_port.set_setting).toHaveBeenLastCalledWith(
-      "pinned_vault_ids",
-      [vault_a.id],
-    );
-  });
-
-  it("selects pinned vault by slot and skips missing slots", async () => {
-    const vault_a: Vault = {
-      id: as_vault_id("vault-a"),
-      name: "Vault A",
-      path: as_vault_path("/vault/a"),
-      created_at: 1,
-    };
-    const vault_b: Vault = {
-      id: as_vault_id("vault-b"),
-      name: "Vault B",
-      path: as_vault_path("/vault/b"),
-      created_at: 1,
-    };
-
-    const service = new VaultService(
-      {
-        choose_vault: vi.fn(),
-        open_vault: vi.fn().mockResolvedValue(vault_a),
-        open_vault_by_id: vi.fn().mockResolvedValue(vault_b),
-        list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
-        remember_last_vault: vi.fn(),
-        get_last_vault_id: vi.fn(),
-      } as never,
-      {
-        list_folder_contents: vi.fn().mockResolvedValue({
-          notes: [],
-          subfolders: [],
-          total_count: 0,
-          has_more: false,
-        }),
-        get_folder_stats: vi.fn().mockResolvedValue({
-          note_count: 0,
-          folder_count: 0,
-        }),
-      } as never,
-      {
-        cancel_index: vi.fn(),
-        sync_index: vi.fn().mockResolvedValue(undefined),
-        rebuild_index: vi.fn(),
-        upsert_note: vi.fn(),
-        remove_note: vi.fn(),
-        remove_notes: vi.fn(),
-        remove_notes_by_prefix: vi.fn(),
-        rename_note_path: vi.fn(),
-        rename_folder_paths: vi.fn(),
-        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      {
-        get_setting: vi.fn().mockResolvedValue([vault_b.id]),
-        set_setting: vi.fn().mockResolvedValue(undefined),
-      } as never,
-      {
-        get_vault_setting: vi.fn().mockResolvedValue(null),
-        set_vault_setting: vi.fn().mockResolvedValue(undefined),
-        delete_vault_setting: vi.fn(),
-      } as never,
-
-      new VaultStore(),
-      new NotesStore(),
-      new EditorStore(),
-      new OpStore(),
-      new SearchStore(),
-      () => 1,
-    );
-
-    const open_result = await service.change_vault_by_path(vault_a.path);
-    expect(open_result.status).toBe("opened");
-
-    const selected = await service.select_pinned_vault_by_slot(0);
-    expect(selected.status).toBe("opened");
-
-    const skipped = await service.select_pinned_vault_by_slot(1);
-    expect(skipped).toEqual({ status: "skipped" });
-  });
-
-  it("cancels in-flight index when vault changes", async () => {
-    const vault_a: Vault = {
-      id: as_vault_id("vault-a"),
-      name: "Vault A",
-      path: as_vault_path("/vault/a"),
-      created_at: 1,
-    };
-    const vault_b: Vault = {
-      id: as_vault_id("vault-b"),
-      name: "Vault B",
-      path: as_vault_path("/vault/b"),
-      created_at: 1,
-    };
-
-    const vault_port = {
-      choose_vault: vi.fn(),
-      open_vault: vi.fn((vault_path: string) =>
-        Promise.resolve(vault_path === vault_a.path ? vault_a : vault_b),
-      ),
-      open_vault_by_id: vi.fn(),
-      list_vaults: vi.fn().mockResolvedValue([vault_a, vault_b]),
-      remember_last_vault: vi.fn().mockResolvedValue(undefined),
-      get_last_vault_id: vi.fn().mockResolvedValue(null),
-    };
-
-    const notes_port = {
-      list_folder_contents: vi.fn().mockResolvedValue({
-        notes: [],
-        subfolders: [],
-        total_count: 0,
-        has_more: false,
-      }),
-      get_folder_stats: vi.fn().mockResolvedValue({
-        note_count: 0,
-        folder_count: 0,
-      }),
-    };
-
-    const index_port = {
-      cancel_index: vi.fn().mockResolvedValue(undefined),
-      sync_index: vi.fn().mockResolvedValue(undefined),
-      rebuild_index: vi.fn().mockResolvedValue(undefined),
-      upsert_note: vi.fn(),
-      remove_note: vi.fn(),
-      remove_notes: vi.fn(),
-      remove_notes_by_prefix: vi.fn(),
-      rename_note_path: vi.fn(),
-      rename_folder_paths: vi.fn(),
-      subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-    };
-
-    const settings_port = {
-      get_setting: vi.fn().mockResolvedValue(null),
-      set_setting: vi.fn(),
-    };
-    const vault_settings_port = {
-      get_vault_setting: vi.fn().mockResolvedValue(null),
-      set_vault_setting: vi.fn().mockResolvedValue(undefined),
-      delete_vault_setting: vi.fn(),
-    };
-    const service = new VaultService(
-      vault_port as never,
-      notes_port as never,
-      index_port as never,
-      settings_port as never,
-      vault_settings_port as never,
-
-      new VaultStore(),
-      new NotesStore(),
-      new EditorStore(),
-      new OpStore(),
-      new SearchStore(),
-      () => 1,
-    );
-
-    await service.change_vault_by_path(vault_a.path);
-    await service.change_vault_by_path(vault_b.path);
-
-    expect(index_port.cancel_index).toHaveBeenCalledWith(vault_a.id);
-  });
-
   it("skips rebuild while indexing is active", async () => {
     const vault: Vault = {
       id: as_vault_id("vault-a"),
@@ -605,12 +352,9 @@ describe("VaultService", () => {
 
     const service = new VaultService(
       {
-        choose_vault: vi.fn(),
         open_vault: vi.fn(),
         open_vault_by_id: vi.fn(),
         list_vaults: vi.fn(),
-        remember_last_vault: vi.fn(),
-        get_last_vault_id: vi.fn(),
       } as never,
       { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       index_port as never,
@@ -667,12 +411,9 @@ describe("VaultService", () => {
 
     const service = new VaultService(
       {
-        choose_vault: vi.fn(),
         open_vault: vi.fn(),
         open_vault_by_id: vi.fn(),
         list_vaults: vi.fn(),
-        remember_last_vault: vi.fn(),
-        get_last_vault_id: vi.fn(),
       } as never,
       { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
       index_port as never,
@@ -718,12 +459,9 @@ describe("VaultService", () => {
 
     const service = new VaultService(
       {
-        choose_vault: vi.fn(),
         open_vault: vi.fn(),
         open_vault_by_id: vi.fn(),
         list_vaults: vi.fn(),
-        remember_last_vault: vi.fn(),
-        get_last_vault_id: vi.fn(),
       } as never,
       notes_port as never,
       {
@@ -785,12 +523,9 @@ describe("VaultService", () => {
 
     const service = new VaultService(
       {
-        choose_vault: vi.fn(),
         open_vault: vi.fn(),
         open_vault_by_id: vi.fn(),
         list_vaults: vi.fn(),
-        remember_last_vault: vi.fn(),
-        get_last_vault_id: vi.fn(),
       } as never,
       notes_port as never,
       {
@@ -827,143 +562,5 @@ describe("VaultService", () => {
       value: null,
       error: "scan failed",
     });
-  });
-
-  it("removes non-active vault from registry and prunes pinned state", async () => {
-    const vault_a: Vault = {
-      id: as_vault_id("vault-a"),
-      name: "Vault A",
-      path: as_vault_path("/vault/a"),
-      created_at: 1,
-    };
-    const vault_b: Vault = {
-      id: as_vault_id("vault-b"),
-      name: "Vault B",
-      path: as_vault_path("/vault/b"),
-      created_at: 1,
-    };
-
-    const vault_port = {
-      choose_vault: vi.fn(),
-      open_vault: vi.fn(),
-      open_vault_by_id: vi.fn(),
-      list_vaults: vi.fn().mockResolvedValue([vault_a]),
-      remove_vault: vi.fn().mockResolvedValue(undefined),
-      remember_last_vault: vi.fn(),
-      get_last_vault_id: vi.fn(),
-    };
-
-    const settings_port = {
-      get_setting: vi.fn().mockResolvedValue([vault_b.id]),
-      set_setting: vi.fn().mockResolvedValue(undefined),
-    };
-
-    const vault_store = new VaultStore();
-    vault_store.set_vault(vault_a);
-    vault_store.set_recent_vaults([vault_a, vault_b]);
-    vault_store.set_pinned_vault_ids([vault_b.id]);
-
-    const service = new VaultService(
-      vault_port as never,
-      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
-      {
-        cancel_index: vi.fn(),
-        sync_index: vi.fn(),
-        rebuild_index: vi.fn(),
-        upsert_note: vi.fn(),
-        remove_note: vi.fn(),
-        remove_notes: vi.fn(),
-        remove_notes_by_prefix: vi.fn(),
-        rename_note_path: vi.fn(),
-        rename_folder_paths: vi.fn(),
-        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      settings_port as never,
-      {
-        get_vault_setting: vi.fn(),
-        set_vault_setting: vi.fn(),
-        delete_vault_setting: vi.fn(),
-      } as never,
-
-      vault_store,
-      new NotesStore(),
-      new EditorStore(),
-      new OpStore(),
-      new SearchStore(),
-      () => 1,
-    );
-
-    const result = await service.remove_vault_from_registry(vault_b.id);
-
-    expect(result).toEqual({ status: "success" });
-    expect(vault_port.remove_vault).toHaveBeenCalledWith(vault_b.id);
-    expect(vault_store.recent_vaults.map((vault) => vault.id)).toEqual([
-      vault_a.id,
-    ]);
-    expect(vault_store.pinned_vault_ids).toEqual([]);
-    expect(settings_port.set_setting).toHaveBeenLastCalledWith(
-      "pinned_vault_ids",
-      [],
-    );
-  });
-
-  it("blocks removing the active vault from registry", async () => {
-    const vault_a: Vault = {
-      id: as_vault_id("vault-a"),
-      name: "Vault A",
-      path: as_vault_path("/vault/a"),
-      created_at: 1,
-    };
-
-    const vault_port = {
-      choose_vault: vi.fn(),
-      open_vault: vi.fn(),
-      open_vault_by_id: vi.fn(),
-      list_vaults: vi.fn(),
-      remove_vault: vi.fn(),
-      remember_last_vault: vi.fn(),
-      get_last_vault_id: vi.fn(),
-    };
-
-    const vault_store = new VaultStore();
-    vault_store.set_vault(vault_a);
-
-    const service = new VaultService(
-      vault_port as never,
-      { list_folder_contents: vi.fn(), get_folder_stats: vi.fn() } as never,
-      {
-        cancel_index: vi.fn(),
-        sync_index: vi.fn(),
-        rebuild_index: vi.fn(),
-        upsert_note: vi.fn(),
-        remove_note: vi.fn(),
-        remove_notes: vi.fn(),
-        remove_notes_by_prefix: vi.fn(),
-        rename_note_path: vi.fn(),
-        rename_folder_paths: vi.fn(),
-        subscribe_index_progress: vi.fn().mockReturnValue(() => {}),
-      } as never,
-      { get_setting: vi.fn(), set_setting: vi.fn() } as never,
-      {
-        get_vault_setting: vi.fn(),
-        set_vault_setting: vi.fn(),
-        delete_vault_setting: vi.fn(),
-      } as never,
-
-      vault_store,
-      new NotesStore(),
-      new EditorStore(),
-      new OpStore(),
-      new SearchStore(),
-      () => 1,
-    );
-
-    const result = await service.remove_vault_from_registry(vault_a.id);
-
-    expect(result).toEqual({
-      status: "failed",
-      error: "Cannot remove active vault",
-    });
-    expect(vault_port.remove_vault).not.toHaveBeenCalled();
   });
 });

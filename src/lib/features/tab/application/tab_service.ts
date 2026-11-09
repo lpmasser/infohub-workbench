@@ -21,7 +21,7 @@ export class TabService {
       return;
     const updated = {
       ...current,
-      meta: { ...current.meta, mtime_ms: saved_note.meta.mtime_ms },
+      meta: { ...current.meta, version: saved_note.meta.version },
       is_dirty: current.markdown !== saved_note.markdown,
     };
     this.tab_store.set_cached_note(tab.id, updated);

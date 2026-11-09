@@ -2,24 +2,13 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import {
-  clear_filetree_scope_if_removed,
   clear_folder_filetree_state,
   load_folder,
-  remove_expanded_paths,
-  remap_expanded_paths,
-  remap_path,
-  remap_ui_paths_after_move,
   set_pagination,
   transform_filetree_paths,
 } from "$lib/features/folder/application/filetree_action_helpers";
 import {
   ancestor_folder_paths,
-  build_folder_path_from_name,
-  close_create_dialog,
-  close_delete_dialog,
-  close_rename_dialog,
-  folder_name_from_path,
-  is_valid_folder_name,
   parse_reveal_note_path,
 } from "$lib/features/folder/application/folder_action_helpers";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
@@ -193,22 +182,14 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     stores.vault.bump_generation();
     close_move_conflict_dialog();
 
+    // Only files move; the server refuses folders.
     for (const move_result of result.results) {
-      const item = items.find((entry) => entry.path === move_result.path);
-      if (!item || !move_result.success) {
+      if (!move_result.success) {
         continue;
       }
 
-      remap_ui_paths_after_move(
-        input,
-        move_result.path,
-        move_result.new_path,
-        item.is_folder,
-      );
-
-      if (item.is_folder) {
-        clear_folder_filetree_state(input, move_result.path);
-        clear_folder_filetree_state(input, move_result.new_path);
+      if (stores.ui.filetree_revealed_note_path === move_result.path) {
+        stores.ui.filetree_revealed_note_path = move_result.new_path;
       }
       clear_folder_filetree_state(input, parent_folder_path(move_result.path));
       clear_folder_filetree_state(
@@ -218,175 +199,6 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     }
 
     stores.ui.clear_selected_items();
-  }
-
-  async function load_delete_stats_for_dialog(folder_path: string) {
-    const result = await services.folder.load_delete_stats(folder_path);
-
-    if (result.status === "ready") {
-      stores.ui.delete_folder_dialog = {
-        ...stores.ui.delete_folder_dialog,
-        status: "confirming",
-        affected_note_count: result.affected_note_count,
-        affected_folder_count: result.affected_folder_count,
-      };
-      return;
-    }
-
-    if (result.status === "failed") {
-      stores.ui.delete_folder_dialog = {
-        ...stores.ui.delete_folder_dialog,
-        status: "error",
-      };
-      return;
-    }
-
-    close_delete_dialog(input);
-  }
-
-  async function execute_delete_folder() {
-    const folder_path = stores.ui.delete_folder_dialog.folder_path;
-    if (!folder_path) {
-      return;
-    }
-
-    const result = await services.folder.delete_folder(folder_path);
-    if (result.status !== "success") {
-      return;
-    }
-
-    close_delete_dialog(input);
-    const parent_path = parent_folder_path(folder_path);
-    clear_filetree_scope_if_removed(input, folder_path);
-    remove_expanded_paths(input, folder_path);
-    clear_folder_filetree_state(input, parent_path);
-
-    const folder_prefix = `${folder_path}/`;
-    void services.folder
-      .remove_notes_by_prefix(folder_prefix)
-      .catch((err: unknown) => {
-        log.error("Background index cleanup failed", {
-          folder_path,
-          error: err,
-        });
-      });
-  }
-
-  function execute_rename_folder() {
-    const folder_path = stores.ui.rename_folder_dialog.folder_path;
-    const new_name = stores.ui.rename_folder_dialog.new_name.trim();
-    if (!folder_path || !is_valid_folder_name(new_name)) {
-      return;
-    }
-    if (stores.op.is_pending("folder.rename")) {
-      return;
-    }
-
-    const parent = parent_folder_path(folder_path);
-    const new_path = build_folder_path_from_name(parent, new_name);
-
-    close_rename_dialog(input);
-    void handle_folder_rename_async(folder_path, new_name, new_path, parent);
-  }
-
-  async function handle_folder_rename_async(
-    folder_path: string,
-    new_name: string,
-    new_path: string,
-    parent: string,
-  ) {
-    try {
-      const result = await services.folder.rename_folder(folder_path, new_path);
-      if (result.status !== "success") {
-        stores.ui.rename_folder_dialog = {
-          open: true,
-          folder_path,
-          new_name,
-        };
-        return;
-      }
-
-      stores.vault.bump_generation();
-      services.folder.apply_folder_rename(folder_path, new_path);
-      remap_expanded_paths(input, folder_path, new_path);
-      if (stores.ui.filetree_scoped_root_path) {
-        stores.ui.filetree_scoped_root_path = remap_path(
-          stores.ui.filetree_scoped_root_path,
-          folder_path,
-          new_path,
-        );
-      }
-
-      clear_folder_filetree_state(input, folder_path);
-      clear_folder_filetree_state(input, new_path);
-      clear_folder_filetree_state(input, parent);
-      const new_parent = parent_folder_path(new_path);
-      if (new_parent !== parent) {
-        clear_folder_filetree_state(input, new_parent);
-      }
-
-      const old_prefix = `${folder_path}/`;
-      const new_prefix = `${new_path}/`;
-      stores.tab.update_tab_path_prefix(old_prefix, new_prefix);
-      void services.folder
-        .rename_folder_index(old_prefix, new_prefix)
-        .catch((err: unknown) => {
-          log.error("Background index rename failed", {
-            folder_path,
-            error: err,
-          });
-        });
-    } catch (err) {
-      log.error("Unexpected rename flow failure", { folder_path, error: err });
-    }
-  }
-
-  function register_create_actions() {
-    registry.register({
-      id: ACTION_IDS.folder_request_create,
-      label: "Request Create Folder",
-      execute: (parent_path: unknown) => {
-        stores.ui.create_folder_dialog = {
-          open: true,
-          parent_path: String(parent_path),
-          folder_name: "",
-        };
-        services.folder.reset_create_operation();
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_update_create_name,
-      label: "Update Create Folder Name",
-      execute: (name: unknown) => {
-        stores.ui.create_folder_dialog.folder_name = String(name);
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_confirm_create,
-      label: "Confirm Create Folder",
-      execute: async () => {
-        const { parent_path, folder_name } = stores.ui.create_folder_dialog;
-        const result = await services.folder.create_folder(
-          parent_path,
-          folder_name,
-        );
-        if (result.status === "success") {
-          clear_folder_filetree_state(input, parent_path);
-          close_create_dialog(input);
-        }
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_cancel_create,
-      label: "Cancel Create Folder",
-      execute: () => {
-        close_create_dialog(input);
-        services.folder.reset_create_operation();
-      },
-    });
   }
 
   function register_selection_actions() {
@@ -669,111 +481,6 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     });
   }
 
-  function register_delete_actions() {
-    registry.register({
-      id: ACTION_IDS.folder_request_delete,
-      label: "Request Delete Folder",
-      execute: async (folder_path: unknown) => {
-        const normalized_path = String(folder_path);
-
-        stores.ui.delete_folder_dialog = {
-          open: true,
-          folder_path: normalized_path,
-          affected_note_count: 0,
-          affected_folder_count: 0,
-          status: "fetching_stats",
-        };
-
-        services.folder.reset_delete_operation();
-        services.folder.reset_delete_stats_operation();
-        await load_delete_stats_for_dialog(normalized_path);
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_confirm_delete,
-      label: "Confirm Delete Folder",
-      execute: execute_delete_folder,
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_cancel_delete,
-      label: "Cancel Delete Folder",
-      execute: () => {
-        close_delete_dialog(input);
-        services.folder.reset_delete_operation();
-        services.folder.reset_delete_stats_operation();
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_retry_delete,
-      label: "Retry Delete Folder",
-      execute: async () => {
-        if (stores.ui.delete_folder_dialog.status === "error") {
-          const folder_path = stores.ui.delete_folder_dialog.folder_path;
-          if (!folder_path) {
-            return;
-          }
-
-          stores.ui.delete_folder_dialog = {
-            ...stores.ui.delete_folder_dialog,
-            status: "fetching_stats",
-          };
-          services.folder.reset_delete_stats_operation();
-          await load_delete_stats_for_dialog(folder_path);
-          return;
-        }
-        await execute_delete_folder();
-      },
-    });
-  }
-
-  function register_rename_actions() {
-    registry.register({
-      id: ACTION_IDS.folder_request_rename,
-      label: "Request Rename Folder",
-      execute: (folder_path: unknown) => {
-        const path = String(folder_path);
-        stores.ui.rename_folder_dialog = {
-          open: true,
-          folder_path: path,
-          new_name: folder_name_from_path(path),
-        };
-        services.folder.reset_rename_operation();
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_update_rename_name,
-      label: "Update Rename Folder Name",
-      execute: (name: unknown) => {
-        stores.ui.rename_folder_dialog.new_name = String(name);
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_confirm_rename,
-      label: "Confirm Rename Folder",
-      execute: execute_rename_folder,
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_cancel_rename,
-      label: "Cancel Rename Folder",
-      execute: () => {
-        close_rename_dialog(input);
-        services.folder.reset_rename_operation();
-      },
-    });
-
-    registry.register({
-      id: ACTION_IDS.folder_retry_rename,
-      label: "Retry Rename Folder",
-      execute: execute_rename_folder,
-    });
-  }
-
   function register_star_actions() {
     registry.register({
       id: ACTION_IDS.folder_toggle_star,
@@ -808,11 +515,8 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     });
   }
 
-  register_create_actions();
   register_selection_actions();
   register_move_actions();
   register_navigation_actions();
-  register_delete_actions();
-  register_rename_actions();
   register_star_actions();
 }

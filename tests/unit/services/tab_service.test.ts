@@ -59,7 +59,7 @@ describe("TabService", () => {
         path: note_path,
         name: "alpha.md",
         title: "alpha",
-        mtime_ms: 0,
+        version: null,
         size_bytes: 0,
       },
       markdown: as_markdown_text(""),
@@ -85,7 +85,7 @@ describe("TabService", () => {
         path: note_path,
         name: "alpha.md",
         title: "alpha",
-        mtime_ms: 123,
+        version: "v123",
         size_bytes: 0,
       },
       markdown: as_markdown_text("# Alpha"),
@@ -95,7 +95,7 @@ describe("TabService", () => {
 
     expect(tab_store.find_tab_by_path(note_path)?.is_dirty).toBe(false);
     expect(tab_store.has_conflict(note_path)).toBe(false);
-    expect(tab_store.get_cached_note(note_path)?.meta.mtime_ms).toBe(123);
+    expect(tab_store.get_cached_note(note_path)?.meta.version).toBe("v123");
   });
 
   it("removes a tab by note path", () => {

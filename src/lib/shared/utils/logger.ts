@@ -1,18 +1,8 @@
-import { is_tauri } from "$lib/shared/utils/detect_platform";
 import { error_message } from "./error_message";
 
 type LogLevel = "error" | "warn" | "info" | "debug";
 
 type LogContext = Record<string, unknown>;
-
-type LogFn = (msg: string) => void;
-
-interface RawLogger {
-  error: LogFn;
-  warn: LogFn;
-  info: LogFn;
-  debug: LogFn;
-}
 
 export interface Logger {
   error: (msg: string, ctx?: LogContext) => void;
@@ -40,54 +30,8 @@ function format_message(module: string, msg: string, ctx?: LogContext): string {
   return `${prefix}${msg}${suffix}`;
 }
 
-function create_console_raw_logger(): RawLogger {
-  return {
-    error: (msg) => {
-      console.error(msg);
-    },
-    warn: (msg) => {
-      console.warn(msg);
-    },
-    info: (msg) => {
-      console.info(msg);
-    },
-    debug: (msg) => {
-      console.debug(msg);
-    },
-  };
-}
-
-function wrap_async_log(fn: (msg: string) => Promise<void>): LogFn {
-  return (msg: string) => {
-    void fn(msg);
-  };
-}
-
-async function create_tauri_raw_logger(): Promise<RawLogger> {
-  const mod = await import("@tauri-apps/plugin-log");
-  await mod.attachConsole();
-  return {
-    error: wrap_async_log(mod.error),
-    warn: wrap_async_log(mod.warn),
-    info: wrap_async_log(mod.info),
-    debug: wrap_async_log(mod.debug),
-  };
-}
-
-let _raw_logger: RawLogger | null = null;
-
-async function get_raw_logger(): Promise<RawLogger> {
-  if (_raw_logger) return _raw_logger;
-  _raw_logger = is_tauri
-    ? await create_tauri_raw_logger()
-    : create_console_raw_logger();
-  return _raw_logger;
-}
-
 function log_at(level: LogLevel, msg: string) {
-  void get_raw_logger().then((l) => {
-    l[level](msg);
-  });
+  console[level](msg);
 }
 
 function create_scoped_log_fn(

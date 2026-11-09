@@ -8,7 +8,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { register_theme_actions } from "$lib/features/theme";
 import { BUILTIN_NORDIC_DARK, type Theme } from "$lib/shared/types/theme";
 
@@ -37,7 +36,6 @@ function create_harness() {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
   };
 
   const services = {

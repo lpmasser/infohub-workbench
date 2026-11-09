@@ -1,5 +1,4 @@
 import type { NotesPort } from "$lib/features/note/ports";
-import type { WorkspaceIndexPort } from "$lib/features/search";
 import {
   as_markdown_text,
   as_note_path,
@@ -29,15 +28,16 @@ import {
 import { parent_folder_path } from "$lib/shared/utils/path";
 import { resolve_existing_note_path } from "$lib/features/note/domain/note_lookup";
 import { note_path_exists } from "$lib/features/note/domain/note_path_exists";
-import {
-  run_link_repair_operation,
-  type LinkRepairService,
-} from "$lib/features/links";
 import type { EditorService } from "$lib/features/editor";
 import {
   to_open_note_state,
   type PastedImagePayload,
 } from "$lib/shared/types/editor";
+import {
+  NoteExistsError,
+  NoteNotTextError,
+  NoteVersionConflictError,
+} from "$lib/features/note/types/note_errors";
 import { create_write_queue } from "$lib/shared/utils/write_queue";
 import { create_logger } from "$lib/shared/utils/logger";
 
@@ -66,13 +66,13 @@ type SavePlanDecision =
 
 type SaveExecutionResult = {
   saved_path: NotePath;
-  saved_mtime_ms: number;
+  saved_version: string;
   saved_meta?: NoteMeta;
 };
 
 type PendingNoteWrites = {
   count: number;
-  saved_mtime_ms?: number;
+  saved_version?: string;
 };
 
 export class NoteService {
@@ -84,7 +84,6 @@ export class NoteService {
 
   constructor(
     private readonly notes_port: NotesPort,
-    private readonly index_port: WorkspaceIndexPort,
     private readonly assets_port: AssetsPort,
     private readonly vault_store: VaultStore,
     private readonly notes_store: NotesStore,
@@ -92,15 +91,19 @@ export class NoteService {
     private readonly op_store: OpStore,
     private readonly editor_service: EditorService,
     private readonly now_ms: () => number,
-    private readonly link_repair: LinkRepairService | null = null,
   ) {}
 
   clear_open_note() {
     this.editor_store.clear_open_note();
   }
 
-  skip_mtime_guard(note_id: NoteId) {
-    this.editor_store.update_mtime(note_id, 0);
+  // "Keep my changes" after a conflict: base the open text on the version
+  // the server has now, so the next save replaces it, and only it.
+  async keep_local_changes(note_id: NoteId): Promise<void> {
+    const vault_id = this.get_active_vault_id();
+    if (!vault_id) return;
+    const version = await this.notes_port.current_version(vault_id, note_id);
+    this.editor_store.update_version(note_id, version);
   }
 
   private get_active_vault_id(): VaultId | null {
@@ -126,32 +129,6 @@ export class NoteService {
     return message;
   }
 
-  private async run_link_repair(
-    vault_id: VaultId,
-    path_map: Map<string, string>,
-  ): Promise<void> {
-    await run_link_repair_operation({
-      link_repair: this.link_repair,
-      vault_id,
-      path_map,
-      on_start: (message) => {
-        this.start_operation("links.repair");
-        this.op_store.set_pending_message("links.repair", message);
-      },
-      on_progress: (message) => {
-        this.op_store.set_pending_message("links.repair", message);
-      },
-      on_success: (message) => {
-        this.op_store.succeed("links.repair", message);
-      },
-      on_failed: (message) => {
-        this.op_store.fail("links.repair", message);
-      },
-      on_error: (error) =>
-        this.fail_operation("links.repair", "Link repair failed", error),
-    });
-  }
-
   private async read_or_create_note(
     vault_id: VaultId,
     path: NotePath,
@@ -169,10 +146,9 @@ export class NoteService {
           path,
           as_markdown_text(""),
         );
-        await this.index_port.upsert_note(vault_id, meta.id);
         return { meta, markdown: as_markdown_text("") };
       } catch (create_error) {
-        if (error_message(create_error).includes("note already exists")) {
+        if (create_error instanceof NoteExistsError) {
           return await this.notes_port.read_note(vault_id, path);
         }
         throw create_error;
@@ -227,9 +203,6 @@ export class NoteService {
       }
 
       this.apply_opened_note(doc, options);
-      if (options?.force_reload) {
-        await this.index_port.upsert_note(vault_id, resolved_path);
-      }
       this.succeed_operation(op_key);
       return this.open_note_result(resolved_path);
     } catch (error) {
@@ -242,11 +215,11 @@ export class NoteService {
         resolved_path &&
         this.is_not_found_error(error)
       ) {
-        await this.cleanup_missing_open_note(vault_id, resolved_path);
+        this.cleanup_missing_open_note(resolved_path);
         this.succeed_operation(op_key);
         return { status: "not_found" };
       }
-      if (error_message(error).includes("file_not_text")) {
+      if (error instanceof NoteNotTextError) {
         this.succeed_operation(op_key);
         return { status: "not_text" };
       }
@@ -274,7 +247,7 @@ export class NoteService {
         return false;
       // Ignore our own save notification, but never suppress a time window in
       // which an agent could also write. Check dirty state after the read.
-      if (current.meta.mtime_ms === doc.meta.mtime_ms) return false;
+      if (current.meta.version === doc.meta.version) return false;
       if (current.is_dirty || this.editor_service.is_dirty()) return true;
       this.apply_opened_note(doc, { force_reload: true });
       return false;
@@ -390,7 +363,6 @@ export class NoteService {
 
     try {
       await this.notes_port.delete_note(vault_id, note.id);
-      await this.index_port.remove_note(vault_id, note.id);
 
       const is_open_note = this.editor_store.open_note?.meta.id === note.id;
       this.notes_store.remove_note(note.id);
@@ -443,15 +415,11 @@ export class NoteService {
         new_path,
         overwrite,
       );
-      await this.index_port.rename_note_path(vault_id, note.id, new_path);
 
       if (this.editor_store.open_note?.meta.id === note.id) {
         this.editor_service.rename_buffer(note.path, new_path);
         this.editor_store.update_open_note_path(new_path);
       }
-
-      const path_map = new Map([[note.id as string, new_path as string]]);
-      await this.run_link_repair(vault_id, path_map);
 
       this.notes_store.rename_note(note.path, new_path);
       const updated_note = this.notes_store.notes.find(
@@ -521,10 +489,10 @@ export class NoteService {
       return {
         status: "saved",
         saved_path: save_result.saved_path,
-        saved_mtime_ms: save_result.saved_mtime_ms,
+        saved_version: save_result.saved_version,
       };
     } catch (error) {
-      if (this.is_mtime_conflict_error(error)) {
+      if (error instanceof NoteVersionConflictError) {
         this.finish_save_operation(null);
         return { status: "conflict" };
       }
@@ -582,12 +550,12 @@ export class NoteService {
       );
       this.editor_store.update_open_note_path(result.saved_path);
     }
-    this.editor_store.update_mtime(result.saved_path, result.saved_mtime_ms);
+    this.editor_store.update_version(result.saved_path, result.saved_version);
     if (
       matches_session &&
       this.editor_store.open_note?.markdown === saved_note.markdown
     ) {
-      this.editor_store.mark_clean(result.saved_path, result.saved_mtime_ms);
+      this.editor_store.mark_clean(result.saved_path, this.now_ms());
     }
     if (flushed && matches_session) {
       this.editor_service.mark_clean(result.saved_path, saved_note.markdown);
@@ -658,18 +626,7 @@ export class NoteService {
     };
   }
 
-  private async cleanup_missing_open_note(
-    vault_id: VaultId,
-    note_path: NotePath,
-  ) {
-    await this.index_port
-      .remove_note(vault_id, note_path)
-      .catch((error: unknown) => {
-        log.error("Stale index cleanup failed", {
-          path: String(note_path),
-          error,
-        });
-      });
+  private cleanup_missing_open_note(note_path: NotePath) {
     this.notes_store.remove_note(note_path);
     this.notes_store.remove_recent_note(note_path);
   }
@@ -754,16 +711,15 @@ export class NoteService {
           );
         }
         const note = plan.open_note;
-        // Queued saves inherit our preceding write, never a fresh disk mtime.
-        const saved_mtime_ms = await this.notes_port.write_note(
+        // Queued saves build on our preceding write, never on a fresh read.
+        const saved_version = await this.notes_port.write_note(
           vault_id,
           note.meta.id,
           note.markdown,
-          pending.saved_mtime_ms ?? note.meta.mtime_ms ?? undefined,
+          pending.saved_version ?? note.meta.version,
         );
-        pending.saved_mtime_ms = saved_mtime_ms;
-        await this.index_port.upsert_note(vault_id, note.meta.id);
-        return { saved_path: note.meta.path, saved_mtime_ms };
+        pending.saved_version = saved_version;
+        return { saved_path: note.meta.path, saved_version };
       });
     } finally {
       pending.count -= 1;
@@ -828,39 +784,47 @@ export class NoteService {
         target_path,
         open_note.markdown,
       );
-      await this.index_port.upsert_note(vault_id, created_meta.id);
       return {
         saved_path: target_path,
-        saved_mtime_ms: created_meta.mtime_ms,
+        saved_version: created_meta.version ?? "",
         saved_meta: created_meta,
       };
     } catch (error) {
-      if (!this.is_note_exists_error(error)) {
-        throw error;
-      }
-      if (!overwrite) {
-        throw error;
-      }
+      if (!(error instanceof NoteExistsError) || !overwrite) throw error;
     }
 
-    const new_mtime = await this.notes_port.write_note(
+    // The user confirmed replacing the existing file, as it is now.
+    const saved_version = await this.notes_port.write_note(
       vault_id,
       target_path,
       open_note.markdown,
+      await this.notes_port.current_version(vault_id, target_path),
     );
-    await this.index_port.upsert_note(vault_id, target_path);
-    const written = await this.notes_port.read_note(vault_id, target_path);
     return {
       saved_path: target_path,
-      saved_mtime_ms: new_mtime,
-      saved_meta: written.meta,
+      saved_version,
+      saved_meta: {
+        ...(await this.notes_port.read_note_meta(vault_id, target_path)),
+        version: saved_version,
+      },
     };
   }
 
-  async write_note_content(note_path: NotePath, markdown: MarkdownText) {
+  // Saves a tab that is not in the editor, against the version it was
+  // loaded from.
+  async write_note_content(
+    note_path: NotePath,
+    markdown: MarkdownText,
+    base_version: string | null,
+  ) {
     const vault = this.vault_store.vault;
     if (!vault) return;
-    return await this.notes_port.write_note(vault.id, note_path, markdown);
+    return await this.notes_port.write_note(
+      vault.id,
+      note_path,
+      markdown,
+      base_version,
+    );
   }
 
   private async rename_note_with_overwrite_if_needed(
@@ -886,33 +850,16 @@ export class NoteService {
     }
 
     await this.notes_port.delete_note(vault_id, to_path);
-    await this.index_port.remove_note(vault_id, to_path);
     this.notes_store.remove_note(to_path);
     this.notes_store.remove_recent_note(to_path);
     await this.notes_port.rename_note(vault_id, from_path, to_path);
   }
 
   private is_not_found_error(error: unknown): boolean {
-    if (error instanceof Error && error.name === "NotFoundError") return true;
-    const message = error_message(error).toLowerCase();
-    return (
-      message.includes("not found") ||
-      message.includes("no such file") ||
-      message.includes("could not be found")
-    );
-  }
-
-  private is_mtime_conflict_error(error: unknown): boolean {
-    // tauri_invoke wraps backend errors as "tauri invoke failed: <cmd>: <error>".
-    return error_message(error).includes("conflict:mtime_mismatch");
+    return error instanceof Error && error.name === "NotFoundError";
   }
 
   private is_note_exists_error(error: unknown): boolean {
-    const message = error_message(error).toLowerCase();
-    return (
-      message.includes("note already exists") ||
-      message.includes("already exists") ||
-      message.includes("destination already exists")
-    );
+    return error instanceof NoteExistsError;
   }
 }

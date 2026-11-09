@@ -10,7 +10,7 @@ function note(path: string): NoteMeta {
     path: path as NotePath,
     name: path.split("/").pop()?.replace(".md", "") ?? "",
     title: path.split("/").pop()?.replace(".md", "") ?? "",
-    mtime_ms: 0,
+    version: null,
     size_bytes: 0,
   };
 }
@@ -97,16 +97,16 @@ describe("NotesStore.merge_folder_contents", () => {
 
     store.merge_folder_contents(
       "",
-      folder_contents([{ ...note("readme.md"), mtime_ms: 100 }], []),
+      folder_contents([{ ...note("readme.md"), version: "v100" }], []),
     );
 
     store.merge_folder_contents(
       "",
-      folder_contents([{ ...note("readme.md"), mtime_ms: 200 }], []),
+      folder_contents([{ ...note("readme.md"), version: "v200" }], []),
     );
 
     expect(store.notes).toHaveLength(1);
-    expect(store.notes[0]?.mtime_ms).toBe(200);
+    expect(store.notes[0]?.version).toBe("v200");
   });
 
   it("removes stale notes that are direct children of loaded folder", () => {
@@ -271,45 +271,6 @@ describe("NotesStore recent notes", () => {
       "docs/RENAMED.md",
     ]);
   });
-
-  it("updates recent notes when a folder path prefix changes", () => {
-    const store = new NotesStore();
-
-    store.add_recent_note(note("docs/a.md"));
-    store.add_recent_note(note("docs/b.md"));
-    store.add_recent_note(note("misc/c.md"));
-
-    store.update_recent_note_path_prefix("docs/", "archive/");
-
-    expect(store.recent_notes.map((entry) => entry.path)).toEqual([
-      "misc/c.md",
-      "archive/b.md",
-      "archive/a.md",
-    ]);
-  });
-
-  it("remove_recent_notes_by_prefix filters matching notes in one pass", () => {
-    const store = new NotesStore();
-    store.add_recent_note(note("docs/a.md"));
-    store.add_recent_note(note("docs/sub/b.md"));
-    store.add_recent_note(note("misc/c.md"));
-
-    store.remove_recent_notes_by_prefix("docs/");
-
-    expect(store.recent_notes.map((entry) => entry.path)).toEqual([
-      "misc/c.md",
-    ]);
-  });
-
-  it("remove_recent_notes_by_prefix is a no-op when prefix matches nothing", () => {
-    const store = new NotesStore();
-    store.add_recent_note(note("misc/a.md"));
-    store.add_recent_note(note("misc/b.md"));
-
-    store.remove_recent_notes_by_prefix("docs/");
-
-    expect(store.recent_notes).toHaveLength(2);
-  });
 });
 
 describe("NotesStore starred paths", () => {
@@ -367,22 +328,5 @@ describe("NotesStore starred paths", () => {
 
     store.remove_note("docs/new.md" as NoteId);
     expect(store.starred_paths).toEqual([]);
-  });
-
-  it("updates starred descendants for folder rename and delete", () => {
-    const store = new NotesStore();
-    store.set_folder_paths(["docs", "docs/sub"]);
-    store.set_notes([note("docs/readme.md"), note("docs/sub/guide.md")]);
-    store.set_starred_paths(["docs", "docs/sub/guide.md", "misc.md"]);
-
-    store.rename_folder("docs", "archive");
-    expect(store.starred_paths).toEqual([
-      "archive",
-      "archive/sub/guide.md",
-      "misc.md",
-    ]);
-
-    store.remove_folder("archive");
-    expect(store.starred_paths).toEqual(["misc.md"]);
   });
 });

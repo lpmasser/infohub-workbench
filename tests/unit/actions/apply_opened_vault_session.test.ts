@@ -8,7 +8,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { apply_opened_vault_session } from "$lib/features/vault";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { VaultSession } from "$lib/features/session";
@@ -22,7 +21,7 @@ function create_open_note(path: string) {
       path: note_path,
       name: "a",
       title: "A",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text("```\\nalpha\\n```"),
@@ -42,7 +41,6 @@ describe("apply_opened_vault_session", () => {
       op: new OpStore(),
       search: new SearchStore(),
       tab: new TabStore(),
-      git: new GitStore(),
     };
     const open_note = create_open_note("docs/a.md");
     const cursor = {
@@ -114,11 +112,6 @@ describe("apply_opened_vault_session", () => {
     registry.register({
       id: ACTION_IDS.folder_refresh_tree,
       label: "Refresh Folder Tree",
-      execute: async () => {},
-    });
-    registry.register({
-      id: ACTION_IDS.git_check_repo,
-      label: "Check Git Repo",
       execute: async () => {},
     });
 

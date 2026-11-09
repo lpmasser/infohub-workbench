@@ -15,7 +15,7 @@ describe("get_asset_write_options", () => {
     });
   });
 
-  it("falls back to .assets when attachment_folder is empty", () => {
+  it("falls back to 附件 when attachment_folder is empty", () => {
     const settings = {
       ...DEFAULT_EDITOR_SETTINGS,
       store_attachments_with_note: false,
@@ -23,7 +23,7 @@ describe("get_asset_write_options", () => {
     };
 
     expect(get_asset_write_options(settings)).toEqual({
-      attachment_folder: ".assets",
+      attachment_folder: "附件",
     });
   });
 

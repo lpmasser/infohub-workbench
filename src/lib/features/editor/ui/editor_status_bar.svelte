@@ -1,11 +1,9 @@
 <script lang="ts">
   import { Code, Info, FolderOpen, RefreshCw } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip/index.js";
-  import { GitStatusWidget } from "$lib/features/git";
   import { format_relative_time } from "$lib/shared/utils/relative_time";
   import type { CursorInfo, EditorViewMode } from "$lib/shared/types/editor";
   import type { IndexProgress } from "$lib/features/search";
-  import type { GitSyncStatus } from "$lib/features/git";
 
   interface Props {
     cursor_info: CursorInfo | null;
@@ -17,17 +15,9 @@
     last_saved_at: number | null;
     index_progress: IndexProgress;
     vault_name: string | null;
-    git_enabled: boolean;
-    git_branch: string;
-    git_is_dirty: boolean;
-    git_pending_files: number;
-    git_sync_status: GitSyncStatus;
-    is_repairing_links: boolean;
-    link_repair_message: string | null;
     on_vault_click: () => void;
     on_view_mode_click: () => void;
     on_info_click: () => void;
-    on_git_click: () => void;
     on_sync_click: () => void;
   }
 
@@ -41,17 +31,9 @@
     last_saved_at,
     index_progress,
     vault_name,
-    git_enabled,
-    git_branch,
-    git_is_dirty,
-    git_pending_files,
-    git_sync_status,
-    is_repairing_links,
-    link_repair_message,
     on_vault_click,
     on_view_mode_click,
     on_info_click,
-    on_git_click,
     on_sync_click,
   }: Props = $props();
 
@@ -133,14 +115,6 @@
     {/if}
   </div>
   <div class="StatusBar__section">
-    {#if is_repairing_links}
-      <span class="StatusBar__item StatusBar__item--repairing">
-        <RefreshCw class="StatusBar__spinner" />
-        <span>{link_repair_message ?? "Repairing links..."}</span>
-      </span>
-      <span class="StatusBar__separator" aria-hidden="true"></span>
-    {/if}
-
     {#if is_indexing}
       <span class="StatusBar__item StatusBar__item--indexing">
         {#if show_index_counts}
@@ -179,7 +153,7 @@
       class="StatusBar__vault-action"
       onclick={on_vault_click}
       disabled={!vault_name}
-      aria-label="Switch vault"
+      aria-label="切换来源"
     >
       <FolderOpen />
       <span>{vault_name ?? "--"}</span>
@@ -193,17 +167,6 @@
     >
       <Info />
     </button>
-    {#if git_enabled}
-      <span class="StatusBar__separator" aria-hidden="true"></span>
-      <GitStatusWidget
-        enabled={git_enabled}
-        branch={git_branch}
-        is_dirty={git_is_dirty}
-        pending_files={git_pending_files}
-        sync_status={git_sync_status}
-        on_click={on_git_click}
-      />
-    {/if}
     <Tooltip.Provider delayDuration={0}>
       <Tooltip.Root>
         <Tooltip.Trigger>
@@ -265,10 +228,6 @@
   }
 
   .StatusBar__item--indexing {
-    color: var(--primary);
-  }
-
-  .StatusBar__item--repairing {
     color: var(--primary);
   }
 

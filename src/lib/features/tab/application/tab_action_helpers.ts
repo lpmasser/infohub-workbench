@@ -199,8 +199,9 @@ export async function save_dirty_tab(
   }
 
   if (stores.tab.active_tab_id === tab_id) {
+    // Choosing to save a conflicted tab keeps the text in the editor.
     if (stores.tab.has_conflict(tab.note_path)) {
-      services.note.skip_mtime_guard(tab.note_path);
+      await services.note.keep_local_changes(tab.note_path);
     }
     if (!open_note || open_note.meta.path !== tab.note_path) return "failed";
     const result = await services.note.save_note(null, true);
@@ -224,12 +225,15 @@ export async function save_dirty_tab(
       return "needs_path";
     }
 
-    const saved_mtime_ms = await services.note.write_note_content(
-      cached.meta.path,
-      cached.markdown,
-    );
+    const saved_version = await services.note
+      .write_note_content(
+        cached.meta.path,
+        cached.markdown,
+        cached.meta.version,
+      )
+      .catch(() => undefined);
     if (
-      saved_mtime_ms === undefined ||
+      saved_version === undefined ||
       stores.vault.generation !== vault_generation ||
       stores.tab.find_tab_by_path(cached.meta.path)?.id !== tab_id
     )
@@ -250,11 +254,11 @@ export async function save_dirty_tab(
     const is_dirty = latest.markdown !== cached.markdown;
     stores.tab.set_cached_note(tab_id, {
       ...latest,
-      meta: { ...latest.meta, mtime_ms: saved_mtime_ms },
+      meta: { ...latest.meta, version: saved_version },
       is_dirty,
     });
     stores.tab.set_dirty(tab_id, is_dirty);
-    if (is_active) stores.editor.update_mtime(latest.meta.id, saved_mtime_ms);
+    if (is_active) stores.editor.update_version(latest.meta.id, saved_version);
     services.editor.mark_clean(cached.meta.path, cached.markdown);
     return is_dirty ? "failed" : "saved";
   }

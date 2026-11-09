@@ -20,7 +20,6 @@ import type {
 
 export function create_mock_vault_port(): VaultPort & {
   _calls: {
-    choose_vault: number;
     open_vault: VaultPath[];
     open_vault_by_id: VaultId[];
   };
@@ -28,15 +27,10 @@ export function create_mock_vault_port(): VaultPort & {
 } {
   const mock = {
     _calls: {
-      choose_vault: 0,
       open_vault: [] as VaultPath[],
       open_vault_by_id: [] as VaultId[],
     },
     _mock_vaults: [] as Vault[],
-    choose_vault() {
-      mock._calls.choose_vault++;
-      return Promise.resolve(null);
-    },
     open_vault(vault_path: VaultPath) {
       mock._calls.open_vault.push(vault_path);
       const vault = mock._mock_vaults.find((v) => v.path === vault_path);
@@ -54,16 +48,6 @@ export function create_mock_vault_port(): VaultPort & {
     list_vaults() {
       return Promise.resolve(mock._mock_vaults);
     },
-    remove_vault(vault_id: VaultId) {
-      mock._mock_vaults = mock._mock_vaults.filter((v) => v.id !== vault_id);
-      return Promise.resolve();
-    },
-    remember_last_vault(_vault_id: VaultId) {
-      return Promise.resolve();
-    },
-    get_last_vault_id() {
-      return Promise.resolve(null);
-    },
   };
   return mock;
 }
@@ -78,20 +62,13 @@ export function create_mock_notes_port(): NotesPort & {
       vault_id: VaultId;
       note_id: NoteId;
       markdown: MarkdownText;
-      expected_mtime_ms?: number;
+      base_version: string | null;
     }[];
     create_note: {
       vault_id: VaultId;
       note_path: NotePath;
       markdown: MarkdownText;
     }[];
-    create_folder: {
-      vault_id: VaultId;
-      parent_path: string;
-      folder_name: string;
-    }[];
-    rename_folder: { vault_id: VaultId; from_path: string; to_path: string }[];
-    delete_folder: { vault_id: VaultId; folder_path: string }[];
     get_folder_stats: { vault_id: VaultId; folder_path: string }[];
     move_items: {
       vault_id: VaultId;
@@ -111,24 +88,13 @@ export function create_mock_notes_port(): NotesPort & {
         vault_id: VaultId;
         note_id: NoteId;
         markdown: MarkdownText;
-        expected_mtime_ms?: number;
+        base_version: string | null;
       }[],
       create_note: [] as {
         vault_id: VaultId;
         note_path: NotePath;
         markdown: MarkdownText;
       }[],
-      create_folder: [] as {
-        vault_id: VaultId;
-        parent_path: string;
-        folder_name: string;
-      }[],
-      rename_folder: [] as {
-        vault_id: VaultId;
-        from_path: string;
-        to_path: string;
-      }[],
-      delete_folder: [] as { vault_id: VaultId; folder_path: string }[],
       get_folder_stats: [] as { vault_id: VaultId; folder_path: string }[],
       move_items: [] as {
         vault_id: VaultId;
@@ -150,7 +116,7 @@ export function create_mock_notes_port(): NotesPort & {
           path: _note_id,
           name: String(_note_id).split("/").at(-1)?.replace(/\.md$/, "") ?? "",
           title: "",
-          mtime_ms: 0,
+          version: null,
           size_bytes: 0,
         },
         markdown: "" as MarkdownText,
@@ -162,7 +128,7 @@ export function create_mock_notes_port(): NotesPort & {
         path: _note_id,
         name: String(_note_id).split("/").at(-1)?.replace(/\.md$/, "") ?? "",
         title: "",
-        mtime_ms: 0,
+        version: null,
         size_bytes: 0,
       });
     },
@@ -170,40 +136,18 @@ export function create_mock_notes_port(): NotesPort & {
       vault_id: VaultId,
       note_id: NoteId,
       markdown: MarkdownText,
-      expected_mtime_ms?: number,
+      base_version: string | null,
     ) {
-      const entry: {
-        vault_id: VaultId;
-        note_id: NoteId;
-        markdown: MarkdownText;
-        expected_mtime_ms?: number;
-      } = { vault_id, note_id, markdown };
-      if (expected_mtime_ms !== undefined) {
-        entry.expected_mtime_ms = expected_mtime_ms;
-      }
-      mock._calls.write_note.push(entry);
-      return Promise.resolve(Date.now());
+      mock._calls.write_note.push({
+        vault_id,
+        note_id,
+        markdown,
+        base_version,
+      });
+      return Promise.resolve(`v-${String(mock._calls.write_note.length)}`);
     },
-    apply_markdown_cleanup(
-      vault_id: VaultId,
-      changes: import("$lib/features/note/ports").MarkdownCleanupChange[],
-    ) {
-      const backup = {
-        id: "mock-backup",
-        created_at_ms: Date.now(),
-        note_count: changes.length,
-      };
-      const changed_ids = new Set(changes.map((change) => change.note_id));
-      const updated_notes = (mock._mock_notes.get(vault_id) ?? []).filter(
-        (note) => changed_ids.has(note.id),
-      );
-      return Promise.resolve({ backup, updated_notes });
-    },
-    get_latest_markdown_cleanup_backup() {
-      return Promise.resolve(null);
-    },
-    restore_latest_markdown_cleanup() {
-      return Promise.resolve(null);
+    current_version(_vault_id: VaultId, _note_id: NoteId) {
+      return Promise.resolve<string | null>("v-current");
     },
     create_note(
       vault_id: VaultId,
@@ -218,7 +162,7 @@ export function create_mock_notes_port(): NotesPort & {
         path: note_path,
         name: stem,
         title: note_path.replace(".md", ""),
-        mtime_ms: Date.now(),
+        version: "v-created",
         size_bytes: markdown.length,
       };
       const current = mock._mock_notes.get(vault_id) || [];
@@ -247,24 +191,6 @@ export function create_mock_notes_port(): NotesPort & {
           : note,
       );
       mock._mock_notes.set(vault_id, updated);
-      return Promise.resolve();
-    },
-    create_folder(
-      vault_id: VaultId,
-      parent_path: string,
-      folder_name: string,
-    ): Promise<void> {
-      mock._calls.create_folder.push({ vault_id, parent_path, folder_name });
-      const full_path = parent_path
-        ? `${parent_path}/${folder_name}`
-        : folder_name;
-      const current = mock._mock_folders.get(vault_id) || [];
-      if (!current.includes(full_path)) {
-        mock._mock_folders.set(
-          vault_id,
-          [...current, full_path].sort((a, b) => a.localeCompare(b)),
-        );
-      }
       return Promise.resolve();
     },
     list_folder_contents(
@@ -319,25 +245,6 @@ export function create_mock_notes_port(): NotesPort & {
         total_count,
         has_more: end < total_count,
       });
-    },
-    rename_folder(vault_id: VaultId, from_path: string, to_path: string) {
-      mock._calls.rename_folder.push({ vault_id, from_path, to_path });
-      const current = mock._mock_folders.get(vault_id) || [];
-      const updated = current.map((path) =>
-        path === from_path ? to_path : path,
-      );
-      mock._mock_folders.set(vault_id, updated);
-      return Promise.resolve();
-    },
-    delete_folder(vault_id: VaultId, folder_path: string) {
-      mock._calls.delete_folder.push({ vault_id, folder_path });
-      const prefix = folder_path + "/";
-      const current_folders = mock._mock_folders.get(vault_id) || [];
-      const updated_folders = current_folders.filter(
-        (path) => path !== folder_path && !path.startsWith(prefix),
-      );
-      mock._mock_folders.set(vault_id, updated_folders);
-      return Promise.resolve();
     },
     get_folder_stats(
       vault_id: VaultId,
@@ -445,53 +352,15 @@ export function create_mock_notes_port(): NotesPort & {
 }
 
 export function create_mock_index_port(): WorkspaceIndexPort & {
-  _mock_note_paths_by_prefix: Map<string, string[]>;
   _calls: {
-    cancel_index: VaultId[];
     sync_index: VaultId[];
     rebuild_index: VaultId[];
-    list_note_paths_by_prefix: { vault_id: VaultId; prefix: string }[];
-    upsert_note: { vault_id: VaultId; note_id: NoteId }[];
-    remove_note: { vault_id: VaultId; note_id: NoteId }[];
-    remove_notes: { vault_id: VaultId; note_ids: NoteId[] }[];
-    rename_note_path: {
-      vault_id: VaultId;
-      old_path: NoteId;
-      new_path: NoteId;
-    }[];
-    remove_notes_by_prefix: { vault_id: VaultId; prefix: string }[];
-    rename_folder_paths: {
-      vault_id: VaultId;
-      old_prefix: string;
-      new_prefix: string;
-    }[];
   };
 } {
   const mock = {
-    _mock_note_paths_by_prefix: new Map<string, string[]>(),
     _calls: {
-      cancel_index: [] as VaultId[],
       sync_index: [] as VaultId[],
       rebuild_index: [] as VaultId[],
-      list_note_paths_by_prefix: [] as { vault_id: VaultId; prefix: string }[],
-      upsert_note: [] as { vault_id: VaultId; note_id: NoteId }[],
-      remove_note: [] as { vault_id: VaultId; note_id: NoteId }[],
-      remove_notes: [] as { vault_id: VaultId; note_ids: NoteId[] }[],
-      rename_note_path: [] as {
-        vault_id: VaultId;
-        old_path: NoteId;
-        new_path: NoteId;
-      }[],
-      remove_notes_by_prefix: [] as { vault_id: VaultId; prefix: string }[],
-      rename_folder_paths: [] as {
-        vault_id: VaultId;
-        old_prefix: string;
-        new_prefix: string;
-      }[],
-    },
-    cancel_index(vault_id: VaultId) {
-      mock._calls.cancel_index.push(vault_id);
-      return Promise.resolve();
     },
     sync_index(vault_id: VaultId) {
       mock._calls.sync_index.push(vault_id);
@@ -499,43 +368,6 @@ export function create_mock_index_port(): WorkspaceIndexPort & {
     },
     rebuild_index(vault_id: VaultId) {
       mock._calls.rebuild_index.push(vault_id);
-      return Promise.resolve();
-    },
-    list_note_paths_by_prefix(vault_id: VaultId, prefix: string) {
-      mock._calls.list_note_paths_by_prefix.push({ vault_id, prefix });
-      const key = `${String(vault_id)}::${prefix}`;
-      return Promise.resolve(mock._mock_note_paths_by_prefix.get(key) ?? []);
-    },
-    upsert_note(vault_id: VaultId, note_id: NoteId) {
-      mock._calls.upsert_note.push({ vault_id, note_id });
-      return Promise.resolve();
-    },
-    remove_note(vault_id: VaultId, note_id: NoteId) {
-      mock._calls.remove_note.push({ vault_id, note_id });
-      return Promise.resolve();
-    },
-    remove_notes(vault_id: VaultId, note_ids: NoteId[]) {
-      mock._calls.remove_notes.push({ vault_id, note_ids });
-      return Promise.resolve();
-    },
-    rename_note_path(vault_id: VaultId, old_path: NoteId, new_path: NoteId) {
-      mock._calls.rename_note_path.push({ vault_id, old_path, new_path });
-      return Promise.resolve();
-    },
-    remove_notes_by_prefix(vault_id: VaultId, prefix: string) {
-      mock._calls.remove_notes_by_prefix.push({ vault_id, prefix });
-      return Promise.resolve();
-    },
-    rename_folder_paths(
-      vault_id: VaultId,
-      old_prefix: string,
-      new_prefix: string,
-    ) {
-      mock._calls.rename_folder_paths.push({
-        vault_id,
-        old_prefix,
-        new_prefix,
-      });
       return Promise.resolve();
     },
     subscribe_index_progress() {

@@ -18,7 +18,6 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
 import { as_markdown_text, as_note_path } from "$lib/shared/types/ids";
 import type { NotePath } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
@@ -35,7 +34,7 @@ function mock_open_note(path: string): OpenNoteState {
       path: as_note_path(path),
       name: path,
       title: path.replace(".md", ""),
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text(""),
@@ -54,7 +53,7 @@ function mock_draft_open_note(
       path: as_note_path(path),
       name: title,
       title,
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text(""),
@@ -73,7 +72,6 @@ function create_tab_actions_harness() {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
   };
   stores.vault.set_vault(create_test_vault());
 
@@ -85,7 +83,7 @@ function create_tab_actions_harness() {
         selected_folder_path: "",
       }),
       save_note: vi.fn().mockResolvedValue({ status: "saved" }),
-      skip_mtime_guard: vi.fn(),
+      keep_local_changes: vi.fn().mockResolvedValue(undefined),
       write_note_content: vi.fn().mockResolvedValue(99),
       reset_save_operation: vi.fn(),
       reset_asset_write_operation: vi.fn(),
@@ -249,14 +247,14 @@ describe("existing note save completion", () => {
         return Promise.resolve({
           status: "saved",
           saved_path: np("first.md"),
-          saved_mtime_ms: 42,
+          saved_version: "v42",
         });
       });
       await registry.execute(action);
       expect(stores.tab.get_cached_note("first.md")).toMatchObject({
         markdown: "later edit",
         is_dirty: true,
-        meta: { mtime_ms: 42 },
+        meta: { version: "v42" },
       });
       expect(services.editor.mark_clean).toHaveBeenCalledWith(
         "first.md",
@@ -329,16 +327,17 @@ describe("register_tab_actions", () => {
         is_dirty: true,
         meta: {
           ...mock_open_note("a.md").meta,
-          mtime_ms: 10,
+          version: "v10",
         },
       });
 
       services.note.save_note.mockImplementation(() => {
+        stores.editor.update_version(np("a.md"), "v99");
         stores.editor.mark_clean(np("a.md"), 99);
         return {
           status: "saved",
           saved_path: np("a.md"),
-          saved_mtime_ms: 99,
+          saved_version: "v99",
         };
       });
 
@@ -348,7 +347,7 @@ describe("register_tab_actions", () => {
         ...stores.editor.open_note,
       });
       expect(stores.tab.get_cached_note("a.md")?.is_dirty).toBe(false);
-      expect(stores.tab.get_cached_note("a.md")?.meta.mtime_ms).toBe(99);
+      expect(stores.tab.get_cached_note("a.md")?.meta.version).toBe("v99");
       expect(stores.tab.find_tab_by_path(np("a.md"))?.is_dirty).toBe(false);
     });
 
@@ -368,18 +367,18 @@ describe("register_tab_actions", () => {
           np("a.md"),
           as_markdown_text("later typing"),
         );
-        stores.editor.update_mtime(np("a.md"), 99);
+        stores.editor.update_version(np("a.md"), "v99");
         return Promise.resolve({
           status: "saved",
           saved_path: np("a.md"),
-          saved_mtime_ms: 99,
+          saved_version: "v99",
         });
       });
       await registry.execute(ACTION_IDS.tab_activate, "b.md");
       expect(stores.tab.get_cached_note("a.md")).toMatchObject({
         markdown: "later typing",
         is_dirty: true,
-        meta: { mtime_ms: 99 },
+        meta: { version: "v99" },
       });
       expect(stores.tab.find_tab_by_path(np("a.md"))?.is_dirty).toBe(true);
     });
@@ -405,7 +404,7 @@ describe("register_tab_actions", () => {
           return Promise.resolve({
             status: "saved",
             saved_path: np("a.md"),
-            saved_mtime_ms: 99,
+            saved_version: "v99",
           });
         });
         await capture_active_tab_snapshot({ stores, services } as never);
@@ -734,12 +733,12 @@ describe("register_tab_actions", () => {
           return Promise.resolve({
             status: "saved",
             saved_path: np("a.md"),
-            saved_mtime_ms: 99,
+            saved_version: "v99",
           });
         });
         services.note.write_note_content.mockImplementationOnce(() => {
           stores.tab.set_cached_note("a.md", later);
-          return Promise.resolve(99);
+          return Promise.resolve("v99");
         });
         stores.ui.tab_close_confirm = {
           ...stores.ui.tab_close_confirm,
@@ -751,7 +750,7 @@ describe("register_tab_actions", () => {
         expect(stores.tab.find_tab_by_path(np("a.md"))).not.toBeNull();
         expect(stores.ui.tab_close_confirm.open).toBe(true);
         if (mode === "inactive")
-          expect(stores.tab.get_cached_note("a.md")?.meta.mtime_ms).toBe(99);
+          expect(stores.tab.get_cached_note("a.md")?.meta.version).toBe("v99");
         expect(
           mode === "active"
             ? stores.editor.open_note?.markdown
@@ -778,7 +777,7 @@ describe("register_tab_actions", () => {
           return Promise.resolve({
             status: "saved",
             saved_path: np("a.md"),
-            saved_mtime_ms: 99,
+            saved_version: "v99",
           });
         });
         expect(
@@ -804,13 +803,13 @@ describe("register_tab_actions", () => {
               ...original,
               buffer_id: "replacement",
             });
-          return Promise.resolve(change === "skipped" ? undefined : 99);
+          return Promise.resolve(change === "skipped" ? undefined : "v99");
         });
         expect(
           await save_dirty_tab({ stores, services } as never, "a.md"),
         ).toBe("failed");
         expect(stores.tab.get_cached_note("a.md")?.is_dirty).toBe(true);
-        expect(stores.tab.get_cached_note("a.md")?.meta.mtime_ms).toBe(0);
+        expect(stores.tab.get_cached_note("a.md")?.meta.version).toBeNull();
         expect(services.editor.mark_clean).not.toHaveBeenCalled();
       },
     );
@@ -826,7 +825,7 @@ describe("register_tab_actions", () => {
         return Promise.resolve({
           status: "saved",
           saved_path: np("a.md"),
-          saved_mtime_ms: 99,
+          saved_version: "v99",
         });
       });
       stores.ui.tab_close_confirm = {
@@ -846,7 +845,7 @@ describe("register_tab_actions", () => {
       expect(stores.tab.tabs).toHaveLength(0);
     });
 
-    it("skips the mtime guard before saving a conflicted active tab", async () => {
+    it("keeps the editor text against the current version before saving a conflicted active tab", async () => {
       const { registry, stores, services } = create_tab_actions_harness();
       stores.tab.open_tab(np("a.md"), "a");
       stores.tab.set_dirty("a.md", true);
@@ -861,7 +860,7 @@ describe("register_tab_actions", () => {
         return Promise.resolve({
           status: "saved",
           saved_path: np("a.md"),
-          saved_mtime_ms: 99,
+          saved_version: "v99",
         });
       });
       stores.ui.tab_close_confirm = {
@@ -876,7 +875,7 @@ describe("register_tab_actions", () => {
 
       await registry.execute(ACTION_IDS.tab_confirm_close_save);
 
-      expect(services.note.skip_mtime_guard).toHaveBeenCalledWith("a.md");
+      expect(services.note.keep_local_changes).toHaveBeenCalledWith("a.md");
       expect(services.note.save_note).toHaveBeenCalledWith(null, true);
       expect(stores.tab.tabs).toHaveLength(0);
     });
@@ -1037,14 +1036,14 @@ describe("register_tab_actions", () => {
         return Promise.resolve({
           status: "saved",
           saved_path: np("saved.md"),
-          saved_mtime_ms: 42,
+          saved_version: "v42",
         });
       });
       await registry.execute(ACTION_IDS.note_confirm_save);
       expect(stores.tab.get_cached_note("saved.md")).toMatchObject({
         markdown: "later edit",
         is_dirty: true,
-        meta: { path: "saved.md", mtime_ms: 42 },
+        meta: { path: "saved.md", version: "v42" },
       });
       expect(stores.tab.find_tab_by_path(np("saved.md"))?.is_dirty).toBe(true);
       expect(stores.tab.active_tab_id).toBe("other.md");
@@ -1345,50 +1344,6 @@ describe("register_tab_actions", () => {
       stores.ui.set_filetree_scoped_root_path("docs");
 
       await registry.execute(ACTION_IDS.filetree_clear_scope);
-
-      expect(stores.ui.filetree_scoped_root_path).toBeNull();
-    });
-
-    it("remaps scope after folder rename", async () => {
-      const { registry, stores, services } = create_tab_actions_harness();
-      stores.ui.rename_folder_dialog = {
-        open: true,
-        folder_path: "docs",
-        new_name: "guides",
-      };
-      stores.ui.set_filetree_scoped_root_path("docs/specs");
-      (services.folder as Record<string, unknown>).rename_folder = vi
-        .fn()
-        .mockResolvedValue({ status: "success" });
-      (services.folder as Record<string, unknown>).apply_folder_rename =
-        vi.fn();
-      (services.folder as Record<string, unknown>).rename_folder_index = vi
-        .fn()
-        .mockResolvedValue(undefined);
-
-      await registry.execute(ACTION_IDS.folder_confirm_rename);
-
-      expect(stores.ui.filetree_scoped_root_path).toBe("guides/specs");
-    });
-
-    it("clears scope when scoped folder is deleted", async () => {
-      const { registry, stores, services } = create_tab_actions_harness();
-      stores.ui.delete_folder_dialog = {
-        open: true,
-        folder_path: "docs",
-        affected_note_count: 0,
-        affected_folder_count: 0,
-        status: "confirming",
-      };
-      stores.ui.set_filetree_scoped_root_path("docs/specs");
-      (services.folder as Record<string, unknown>).delete_folder = vi
-        .fn()
-        .mockResolvedValue({ status: "success" });
-      (services.folder as Record<string, unknown>).remove_notes_by_prefix = vi
-        .fn()
-        .mockResolvedValue(undefined);
-
-      await registry.execute(ACTION_IDS.folder_confirm_delete);
 
       expect(stores.ui.filetree_scoped_root_path).toBeNull();
     });

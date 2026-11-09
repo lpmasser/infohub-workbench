@@ -15,7 +15,7 @@ function mock_open_note(path: string, is_dirty = false): OpenNoteState {
       path: as_note_path(path),
       name: path.replace(".md", ""),
       title: path.replace(".md", ""),
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
     markdown: as_markdown_text(""),
@@ -129,7 +129,7 @@ describe("conflict_toast.reactor", () => {
       };
       const note_service = {
         open_note: vi.fn(),
-        skip_mtime_guard: vi.fn(),
+        keep_local_changes: vi.fn(),
       };
 
       const callbacks = create_conflict_toast_callbacks(
@@ -150,7 +150,7 @@ describe("conflict_toast.reactor", () => {
       });
     });
 
-    it("keep clears conflict state and skips the mtime guard", () => {
+    it("keep clears conflict state and rebases the text on the current version", () => {
       let has_conflict = true;
       const tab_service = {
         clear_conflict: vi.fn(() => {
@@ -160,7 +160,7 @@ describe("conflict_toast.reactor", () => {
       };
       const note_service = {
         open_note: vi.fn(),
-        skip_mtime_guard: vi.fn(),
+        keep_local_changes: vi.fn().mockResolvedValue(undefined),
       };
 
       const callbacks = create_conflict_toast_callbacks(
@@ -175,7 +175,7 @@ describe("conflict_toast.reactor", () => {
       callbacks.on_keep();
 
       expect(has_conflict).toBe(false);
-      expect(note_service.skip_mtime_guard).toHaveBeenCalledWith("a.md");
+      expect(note_service.keep_local_changes).toHaveBeenCalledWith("a.md");
     });
   });
 

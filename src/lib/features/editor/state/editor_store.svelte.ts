@@ -48,7 +48,7 @@ function are_open_notes_equal(
     left.meta.path === right.meta.path &&
     left.meta.name === right.meta.name &&
     left.meta.title === right.meta.title &&
-    left.meta.mtime_ms === right.meta.mtime_ms &&
+    left.meta.version === right.meta.version &&
     left.meta.size_bytes === right.meta.size_bytes
   );
 }
@@ -65,18 +65,17 @@ export class EditorStore {
   }
 
   set_open_note(open_note: OpenNoteState) {
-    const next_last_saved_at = open_note.meta.mtime_ms || null;
     const is_unchanged =
       are_open_notes_equal(this.open_note, open_note) &&
       this.cursor === null &&
-      this.last_saved_at === next_last_saved_at;
+      this.last_saved_at === null;
     if (is_unchanged) {
       return;
     }
 
     this.open_note = open_note;
     this.cursor = null;
-    this.last_saved_at = next_last_saved_at;
+    this.last_saved_at = null;
     this.bump_session_persist_revision();
   }
 
@@ -113,40 +112,26 @@ export class EditorStore {
     this.bump_session_persist_revision();
   }
 
+  // saved_at_ms: when this page saved it, shown as "Saved …".
   mark_clean(note_id: NoteId, saved_at_ms?: number) {
     if (!this.open_note) return;
     if (this.open_note.meta.id !== note_id) return;
-    const next_mtime_ms = saved_at_ms ?? this.open_note.meta.mtime_ms;
-    const next_last_saved_at =
-      saved_at_ms !== undefined ? saved_at_ms : this.last_saved_at;
-    if (
-      !this.open_note.is_dirty &&
-      this.open_note.meta.mtime_ms === next_mtime_ms &&
-      this.last_saved_at === next_last_saved_at
-    ) {
+    const next_last_saved_at = saved_at_ms ?? this.last_saved_at;
+    if (!this.open_note.is_dirty && this.last_saved_at === next_last_saved_at)
       return;
-    }
 
-    this.open_note = {
-      ...this.open_note,
-      is_dirty: false,
-      ...(saved_at_ms !== undefined && {
-        meta: { ...this.open_note.meta, mtime_ms: next_mtime_ms },
-      }),
-    };
-    if (saved_at_ms !== undefined) {
-      this.last_saved_at = saved_at_ms;
-    }
+    this.open_note = { ...this.open_note, is_dirty: false };
+    this.last_saved_at = next_last_saved_at;
     this.bump_session_persist_revision();
   }
 
-  update_mtime(note_id: NoteId, mtime_ms: number) {
+  update_version(note_id: NoteId, version: string | null) {
     if (!this.open_note) return;
     if (this.open_note.meta.id !== note_id) return;
-    if (this.open_note.meta.mtime_ms === mtime_ms) return;
+    if (this.open_note.meta.version === version) return;
     this.open_note = {
       ...this.open_note,
-      meta: { ...this.open_note.meta, mtime_ms },
+      meta: { ...this.open_note.meta, version },
     };
     this.bump_session_persist_revision();
   }
@@ -154,27 +139,6 @@ export class EditorStore {
   update_open_note_path(new_path: NotePath) {
     if (!this.open_note) return;
     if (this.open_note.meta.path === new_path) return;
-    const name = note_name_from_path(new_path);
-    this.open_note = {
-      ...this.open_note,
-      meta: {
-        ...this.open_note.meta,
-        id: new_path,
-        path: new_path,
-        name,
-        title: name,
-      },
-    };
-    this.bump_session_persist_revision();
-  }
-
-  update_open_note_path_prefix(old_prefix: string, new_prefix: string) {
-    if (!this.open_note) return;
-    const current_path = this.open_note.meta.path;
-    if (!current_path.startsWith(old_prefix)) return;
-
-    const new_path =
-      `${new_prefix}${current_path.slice(old_prefix.length)}` as NotePath;
     const name = note_name_from_path(new_path);
     this.open_note = {
       ...this.open_note,

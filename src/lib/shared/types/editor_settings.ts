@@ -2,7 +2,6 @@ export type SettingsCategory =
   | "theme"
   | "layout"
   | "files"
-  | "git"
   | "misc"
   | "hotkeys";
 
@@ -14,7 +13,6 @@ export type EditorSettings = {
   show_hidden_files: boolean;
   autosave_enabled: boolean;
   autosave_delay_ms: number;
-  git_autocommit_enabled: boolean;
   show_vault_dashboard_on_open: boolean;
   max_open_tabs: number;
   editor_max_width_ch: number;
@@ -23,12 +21,13 @@ export type EditorSettings = {
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
-  attachment_folder: ".assets",
+  // InfoHub keeps attachments beside their document, in "附件" inside the
+  // note's folder; nothing goes loose at the repository root.
+  attachment_folder: "附件",
   store_attachments_with_note: false,
   show_hidden_files: false,
   autosave_enabled: true,
   autosave_delay_ms: 2000,
-  git_autocommit_enabled: false,
   show_vault_dashboard_on_open: true,
   max_open_tabs: 5,
   editor_max_width_ch: 85,
@@ -40,7 +39,6 @@ export const SETTINGS_KEY = "editor" as const;
 
 export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "show_vault_dashboard_on_open",
-  "git_autocommit_enabled",
   "autosave_enabled",
   "autosave_delay_ms",
   "editor_max_width_ch",

@@ -13,7 +13,7 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     key: "store_attachments_with_note",
     label: "Store New Attachments Next to Note",
     description:
-      "Save new pasted and dropped attachments in the same folder as the note instead of the configured attachment folder",
+      "Save new pasted and dropped attachments in the note's own folder instead of its attachment folder",
     category: "Files",
     keywords: [
       "attachments",
@@ -31,7 +31,8 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
   {
     key: "attachment_folder",
     label: "Attachment Folder",
-    description: "Folder name for storing pasted images and attachments",
+    description:
+      "Folder inside the note's folder for pasted images and attachments (default 附件)",
     category: "Files",
     keywords: [
       "assets",
@@ -111,22 +112,6 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
       "save",
       "draft",
       "untitled",
-    ],
-  },
-  {
-    key: "git_autocommit_enabled",
-    label: "Git Auto-commit",
-    description: "Automatically commit saved changes to Git",
-    category: "Git",
-    keywords: [
-      "git",
-      "autocommit",
-      "auto commit",
-      "commit",
-      "version",
-      "automatic",
-      "source control",
-      "version control",
     ],
   },
   {

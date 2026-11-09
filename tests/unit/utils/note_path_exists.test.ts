@@ -10,7 +10,7 @@ describe("note_path_exists", () => {
       path: as_note_path("docs/alpha.md"),
       name: "alpha",
       title: "alpha",
-      mtime_ms: 0,
+      version: null,
       size_bytes: 0,
     },
   ];

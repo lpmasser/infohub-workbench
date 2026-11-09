@@ -1,7 +1,6 @@
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import type { AppMountConfig, VaultService } from "$lib/features/vault";
 import type { NoteService } from "$lib/features/note";
-import type { LegacyMarkdownCleanupService } from "$lib/features/note";
 import type { FolderService } from "$lib/features/folder";
 import type { SettingsService } from "$lib/features/settings";
 import type { SearchService } from "$lib/features/search";
@@ -10,7 +9,6 @@ import type { ClipboardService } from "$lib/features/clipboard";
 import type { ShellService } from "$lib/features/shell";
 import type { SessionService } from "$lib/features/session";
 import type { TabService } from "$lib/features/tab";
-import type { GitService } from "$lib/features/git";
 import type { HotkeyService } from "$lib/features/hotkey";
 import type { ThemeService } from "$lib/features/theme";
 import type { UIStore } from "$lib/app/orchestration/ui_store.svelte";
@@ -20,7 +18,6 @@ import type { EditorStore } from "$lib/features/editor";
 import type { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import type { SearchStore } from "$lib/features/search";
 import type { TabStore } from "$lib/features/tab";
-import type { GitStore } from "$lib/features/git";
 
 export type ActionRegistrationInput = {
   registry: ActionRegistry;
@@ -32,12 +29,10 @@ export type ActionRegistrationInput = {
     op: OpStore;
     search: SearchStore;
     tab: TabStore;
-    git: GitStore;
   };
   services: {
     vault: VaultService;
     note: NoteService;
-    markdown_cleanup: LegacyMarkdownCleanupService;
     folder: FolderService;
     settings: SettingsService;
     search: SearchService;
@@ -46,7 +41,6 @@ export type ActionRegistrationInput = {
     shell: ShellService;
     session: SessionService;
     tab: TabService;
-    git: GitService;
     hotkey: HotkeyService;
     theme: ThemeService;
   };

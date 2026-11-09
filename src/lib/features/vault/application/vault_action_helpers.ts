@@ -47,7 +47,6 @@ export async function apply_opened_vault_session(
 
   try {
     await input.registry.execute(ACTION_IDS.folder_refresh_tree);
-    await input.registry.execute(ACTION_IDS.git_check_repo);
 
     const session = await input.services.session.load_latest_session();
     if (session && session.tabs.length > 0) {

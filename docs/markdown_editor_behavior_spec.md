@@ -54,7 +54,7 @@ The package suites under `packages/markdown_editor/tests` cover source/history, 
 | Area                        | Existing evidence                                                                | Remaining acceptance obligation                                                                                 |
 | --------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | Exact source and history    | Source-state, adapter, clipboard, code, and table tests; native file comparisons | Retain exact-byte checks through future changes.                                                                |
-| Native typing and focus     | macOS Tauri repair walkthroughs, including code/table reopening                  | Repeat after changes to rendering, selection, geometry, or key ordering.                                        |
+| Native typing and focus     | Real-browser walkthroughs, including code/table reopening                        | Repeat after changes to rendering, selection, geometry, or key ordering.                                        |
 | Wrapped navigation          | Focused command tests and real-browser/native walkthroughs                       | Check the target WebView and both movement directions.                                                          |
 | Blank lines and spacing     | Layout tests, browser sweeps, and native Enter/Backspace above code              | Repeat visual gap and caret checks after geometry changes, including nested containers and multiple blank rows. |
 | Large documents             | Medium/large fixtures, table windowing, and documented timing samples            | Separate first open, unseen scrolling, restoration, and edit latency. There is no universal timing guarantee.   |
@@ -1062,8 +1062,8 @@ A synthetic giant single paragraph remains a known reparse cost. Parser time bud
 ### LIFE-008. The package works independently of the app runtime
 
 - **Setup/action:** Mount the editor package with host callbacks in a standalone test, then use it through Otterly's production adapter.
-- **Expected:** Core editing behavior is consistent; app IO remains supplied by the host. The package has no implicit Tauri/Svelte dependency.
-- **Edge cases/notes:** A browser page without native adapters is not proof that the Tauri app works. Package publication/license status is a separate delivery concern.
+- **Expected:** Core editing behavior is consistent; app IO remains supplied by the host. The package has no implicit Svelte or host dependency.
+- **Edge cases/notes:** A page without the production adapter and a real server is not proof that the app works. Package publication/license status is a separate delivery concern.
 
 ## 19. Read-only behavior, accessibility, and themes
 
@@ -1305,7 +1305,7 @@ These scenarios apply to the editor package as a framework.
 
 ## Acceptance record for future changes
 
-For each run, record scenario IDs, platform/WebView, app build, fixture identity, and the result. Separate automated state checks, real-browser interaction, and native Tauri computer use. Record failed scenarios and unmeasured combinations alongside passes.
+For each run, record scenario IDs, platform/WebView, app build, fixture identity, and the result. Separate automated state checks and real-browser interaction. Record failed scenarios and unmeasured combinations alongside passes.
 
 A source check should name the expected and actual edit span or exact original bytes. A visual check should name the caret/focus, line or cell visited, gap change, and scroll result. A performance check should name first open versus unseen jump, fixture size/structure, and what the measurement includes.
 

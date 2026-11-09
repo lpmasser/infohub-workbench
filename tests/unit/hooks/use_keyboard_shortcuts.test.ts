@@ -30,7 +30,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -60,7 +59,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -90,7 +88,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -121,7 +118,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher,
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -153,7 +149,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => true,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab,
     });
 
@@ -170,37 +165,6 @@ describe("use_keyboard_shortcuts", () => {
     expect(on_switch_to_tab).toHaveBeenCalledWith(0);
   });
 
-  it("selects pinned vault on number slot when no tabs", () => {
-    const { registry } = create_mock_registry();
-    const on_select_pinned_vault = vi.fn();
-
-    const shortcuts = use_keyboard_shortcuts({
-      hotkeys_config: () => default_config,
-      is_enabled: () => true,
-      is_blocked: () => false,
-      is_omnibar_topmost: () => false,
-      is_vault_switcher_open: () => false,
-      is_hotkey_recorder_open: () => false,
-      has_tabs: () => false,
-      action_registry: registry,
-      on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault,
-      on_switch_to_tab: vi.fn(),
-    });
-
-    shortcuts.handle_keydown_capture({
-      metaKey: true,
-      ctrlKey: false,
-      key: "1",
-      altKey: false,
-      shiftKey: false,
-      preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
-    } as unknown as KeyboardEvent);
-
-    expect(on_select_pinned_vault).toHaveBeenCalledWith(0);
-  });
-
   it("handles bubble phase hotkeys", () => {
     const { registry, execute } = create_mock_registry();
 
@@ -214,7 +178,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -244,7 +207,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -286,7 +248,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -306,7 +267,6 @@ describe("use_keyboard_shortcuts", () => {
   it("ignores number slots with modifiers other than cmdorctrl", () => {
     const { registry } = create_mock_registry();
     const on_switch_to_tab = vi.fn();
-    const on_select_pinned_vault = vi.fn();
 
     const shortcuts = use_keyboard_shortcuts({
       hotkeys_config: () => default_config,
@@ -318,7 +278,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => true,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault,
       on_switch_to_tab,
     });
 
@@ -333,38 +292,7 @@ describe("use_keyboard_shortcuts", () => {
     } as unknown as KeyboardEvent);
 
     expect(on_switch_to_tab).not.toHaveBeenCalled();
-    expect(on_select_pinned_vault).not.toHaveBeenCalled();
-  });
-
-  it("only selects pinned vault for slots 0-4", () => {
-    const { registry } = create_mock_registry();
-    const on_select_pinned_vault = vi.fn();
-
-    const shortcuts = use_keyboard_shortcuts({
-      hotkeys_config: () => default_config,
-      is_enabled: () => true,
-      is_blocked: () => false,
-      is_omnibar_topmost: () => false,
-      is_vault_switcher_open: () => false,
-      is_hotkey_recorder_open: () => false,
-      has_tabs: () => false,
-      action_registry: registry,
-      on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault,
-      on_switch_to_tab: vi.fn(),
-    });
-
-    shortcuts.handle_keydown_capture({
-      metaKey: true,
-      ctrlKey: false,
-      key: "6",
-      altKey: false,
-      shiftKey: false,
-      preventDefault: vi.fn(),
-      stopPropagation: vi.fn(),
-    } as unknown as KeyboardEvent);
-
-    expect(on_select_pinned_vault).not.toHaveBeenCalled();
+    expect(on_switch_to_tab).not.toHaveBeenCalled();
   });
 
   it("executes omnibar actions even when blocked if omnibar is open", () => {
@@ -380,7 +308,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -417,7 +344,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -454,7 +380,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -489,7 +414,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -533,7 +457,6 @@ describe("use_keyboard_shortcuts", () => {
       has_tabs: () => false,
       action_registry: registry,
       on_close_vault_switcher: vi.fn(),
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab: vi.fn(),
     });
 
@@ -591,7 +514,6 @@ describe("use_keyboard_shortcuts picker and dialog policy", () => {
       has_tabs: () => true,
       action_registry: registry,
       on_close_vault_switcher,
-      on_select_pinned_vault: vi.fn(),
       on_switch_to_tab,
       ...overrides,
     });

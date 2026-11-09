@@ -10,7 +10,6 @@
   import FilePlusIcon from "@lucide/svelte/icons/file-plus";
   import FolderOpenIcon from "@lucide/svelte/icons/folder-open";
   import LibraryIcon from "@lucide/svelte/icons/library";
-  import GitBranchIcon from "@lucide/svelte/icons/git-branch";
   import HistoryIcon from "@lucide/svelte/icons/history";
   import BookmarkIcon from "@lucide/svelte/icons/bookmark";
   import KeyboardIcon from "@lucide/svelte/icons/keyboard";
@@ -42,7 +41,6 @@
     "folder-open": FolderOpenIcon,
     settings: SettingsIcon,
     keyboard: KeyboardIcon,
-    "git-branch": GitBranchIcon,
     history: HistoryIcon,
     bookmark: BookmarkIcon,
     link: LinkIcon,
@@ -129,7 +127,6 @@
     items: OmnibarItem[];
     vault_note_count: number | null;
     vault_last_opened_at: number | null;
-    vault_is_available: boolean;
   };
 
   type NoteSearchItem =
@@ -167,7 +164,6 @@
           items: [],
           vault_note_count: item.vault_note_count ?? null,
           vault_last_opened_at: item.vault_last_opened_at ?? null,
-          vault_is_available: item.vault_is_available !== false,
         };
         groups.set(item.vault_id, group);
       }
@@ -331,7 +327,6 @@
       case "store_attachments_with_note":
       case "show_hidden_files":
       case "autosave_enabled":
-      case "git_autocommit_enabled":
       case "show_vault_dashboard_on_open":
         return settings[key] ? "On" : "Off";
       case "autosave_delay_ms":
@@ -583,18 +578,12 @@
                 class="Omnibar__vault-facet"
                 title={`${group.vault_note_count ?? "Unknown"} notes · ${group.vault_last_opened_at ? `Opened ${format_relative_time(group.vault_last_opened_at)}` : "Not opened yet"}`}
                 class:Omnibar__vault-facet--bordered={group_idx > 0}
-                class:Omnibar__vault-facet--unavailable={!group.vault_is_available}
               >
                 <div class="Omnibar__vault-facet-header">
                   <LibraryIcon />
                   <span class="Omnibar__vault-facet-name"
                     >{group.vault_name}</span
                   >
-                  {#if !group.vault_is_available}
-                    <span class="Omnibar__vault-facet-unavailable"
-                      >Unavailable</span
-                    >
-                  {/if}
                   <span class="Omnibar__vault-facet-count"
                     >{group.items.length}</span
                   >
@@ -979,10 +968,6 @@
     border-top: 1px solid var(--border);
   }
 
-  .Omnibar__vault-facet--unavailable {
-    opacity: 0.6;
-  }
-
   .Omnibar__vault-facet-header {
     display: flex;
     align-items: center;
@@ -992,10 +977,6 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--interactive);
-  }
-
-  .Omnibar__vault-facet--unavailable .Omnibar__vault-facet-header {
-    color: var(--muted-foreground);
   }
 
   :global(.Omnibar__vault-facet-header svg) {
@@ -1020,23 +1001,6 @@
     border-radius: var(--radius-sm);
     background-color: var(--interactive-bg);
     color: var(--interactive);
-    text-transform: none;
-    letter-spacing: normal;
-  }
-
-  .Omnibar__vault-facet--unavailable .Omnibar__vault-facet-count {
-    background-color: var(--muted);
-    color: var(--muted-foreground);
-  }
-
-  .Omnibar__vault-facet-unavailable {
-    flex-shrink: 0;
-    font-size: var(--text-xs);
-    font-weight: 500;
-    padding: var(--space-0-5) var(--space-1-5);
-    border-radius: var(--radius-sm);
-    background-color: var(--destructive);
-    color: var(--destructive-foreground);
     text-transform: none;
     letter-spacing: normal;
   }

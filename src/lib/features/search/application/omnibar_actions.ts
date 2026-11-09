@@ -15,7 +15,6 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   create_new_note: ACTION_IDS.note_create,
   save_note: ACTION_IDS.note_request_save,
   toggle_source_mode: ACTION_IDS.editor_toggle_source_mode,
-  clean_up_legacy_markdown: ACTION_IDS.note_cleanup_markdown_request,
   change_vault: ACTION_IDS.vault_request_change,
   open_settings: ACTION_IDS.settings_open,
   open_theme_settings: ACTION_IDS.settings_open,
@@ -30,10 +29,6 @@ export const COMMAND_TO_ACTION_ID: Record<CommandId, string> = {
   sync_index: ACTION_IDS.vault_sync_index,
   reindex_vault: ACTION_IDS.vault_reindex,
   show_vault_dashboard: ACTION_IDS.ui_open_vault_dashboard,
-  git_version_history: ACTION_IDS.git_open_history,
-  git_create_checkpoint: ACTION_IDS.git_open_checkpoint,
-  git_init_repo: ACTION_IDS.git_init,
-  toggle_links_panel: ACTION_IDS.ui_toggle_context_rail,
 };
 
 const COMMAND_ACTION_ARGUMENTS: Partial<Record<CommandId, unknown[]>> = {
@@ -73,7 +68,6 @@ function map_cross_vault_items(
       vault_name: group.vault_name,
       vault_note_count: group.vault_note_count,
       vault_last_opened_at: group.vault_last_opened_at,
-      vault_is_available: group.vault_is_available,
       score: entry.score,
       snippet: entry.snippet,
       match_kind: entry.match_kind,
@@ -119,33 +113,6 @@ function clear_cross_vault_open_confirm(input: ActionRegistrationInput) {
     target_vault_name: "",
     note_path: null,
   };
-}
-
-function is_unavailable_vault_error(message: string): boolean {
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("vault unavailable") ||
-    normalized.includes("could not be found") ||
-    normalized.includes("no such file or directory")
-  );
-}
-
-function mark_vault_unavailable(
-  input: ActionRegistrationInput,
-  vault_id: VaultId,
-) {
-  input.stores.vault.set_vault_availability(vault_id, false);
-  input.stores.search.set_omnibar_items(
-    input.stores.search.omnibar_items.map((item) => {
-      if (item.kind !== "cross_vault_note" || item.vault_id !== vault_id) {
-        return item;
-      }
-      return {
-        ...item,
-        vault_is_available: false,
-      };
-    }),
-  );
 }
 
 async function search_omnibar_query(
@@ -202,15 +169,6 @@ async function confirm_item(input: ActionRegistrationInput, item: OmnibarItem) {
       });
       break;
     case "cross_vault_note":
-      if (
-        input.stores.vault.recent_vaults.some(
-          (vault) => vault.id === item.vault_id && vault.is_available === false,
-        )
-      ) {
-        mark_vault_unavailable(input, item.vault_id as VaultId);
-        return;
-      }
-
       close_omnibar(input);
       if (input.stores.vault.vault?.id !== item.vault_id) {
         input.stores.ui.cross_vault_open_confirm = {
@@ -409,13 +367,6 @@ export function register_omnibar_actions(input: ActionRegistrationInput) {
         await registry.execute(ACTION_IDS.vault_select, target_vault_id);
       }
       if (stores.vault.vault?.id !== target_vault_id) {
-        const vault_change_error = stores.ui.change_vault.error;
-        if (
-          vault_change_error &&
-          is_unavailable_vault_error(vault_change_error)
-        ) {
-          mark_vault_unavailable(input, target_vault_id);
-        }
         return;
       }
 

@@ -10,7 +10,7 @@ function note(path: string): NoteMeta {
     path: p,
     name: path.split("/").at(-1)?.replace(/\.md$/, "") ?? "",
     title: p,
-    mtime_ms: 0,
+    version: null,
     size_bytes: 0,
   };
 }

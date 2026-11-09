@@ -5,14 +5,12 @@ export type OpStatus = "idle" | "pending" | "success" | "error";
 export type OpState = {
   status: OpStatus;
   error: string | null;
-  message: string | null;
   started_at: number | null;
 };
 
 const IDLE: OpState = {
   status: "idle",
   error: null,
-  message: null,
   started_at: null,
 };
 
@@ -31,27 +29,14 @@ export class OpStore {
     this.ops.set(key, {
       status: "pending",
       error: null,
-      message: null,
       started_at,
     });
   }
 
-  set_pending_message(key: string, message: string | null) {
-    const current = this.ops.get(key);
-    if (!current || current.status !== "pending") {
-      return;
-    }
-    this.ops.set(key, {
-      ...current,
-      message,
-    });
-  }
-
-  succeed(key: string, message: string | null = null) {
+  succeed(key: string) {
     this.ops.set(key, {
       status: "success",
       error: null,
-      message,
       started_at: null,
     });
   }
@@ -60,7 +45,6 @@ export class OpStore {
     this.ops.set(key, {
       status: "error",
       error,
-      message: null,
       started_at: null,
     });
   }

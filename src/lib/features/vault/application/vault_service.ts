@@ -3,11 +3,7 @@ import type { NotesPort } from "$lib/features/note";
 import type { WorkspaceIndexPort } from "$lib/features/search";
 import type { SettingsPort } from "$lib/features/settings";
 import type { VaultSettingsPort } from "$lib/features/vault/ports";
-import {
-  as_vault_id,
-  type VaultId,
-  type VaultPath,
-} from "$lib/shared/types/ids";
+import { type VaultId, type VaultPath } from "$lib/shared/types/ids";
 import type { Vault } from "$lib/shared/types/vault";
 import type { VaultStore } from "$lib/features/vault/state/vault_store.svelte";
 import type { NotesStore } from "$lib/features/note";
@@ -24,7 +20,6 @@ import {
   type EditorSettings,
 } from "$lib/shared/types/editor_settings";
 import type {
-  VaultChoosePathResult,
   VaultInitializeResult,
   VaultOpenResult,
 } from "$lib/features/vault/types/vault_service_result";
@@ -43,12 +38,10 @@ export type AppMountConfig = {
 
 const RECENT_NOTES_KEY = "recent_notes";
 const STARRED_PATHS_KEY = "starred_paths";
-const PINNED_VAULT_IDS_KEY = "pinned_vault_ids";
 
 type VaultOpenSnapshot = {
   root_contents: Awaited<ReturnType<NotesPort["list_folder_contents"]>>;
   recent_vaults: Vault[];
-  pinned_vault_ids: VaultId[];
   recent_notes: NoteMeta[];
   starred_paths: string[];
   editor_settings: EditorSettings;
@@ -116,18 +109,13 @@ export class VaultService {
 
       if (!has_vault && config.bootstrap_default_vault_path) {
         const default_path = config.bootstrap_default_vault_path;
-        const open_revision = await this.begin_open_revision();
+        const open_revision = this.begin_open_revision();
         editor_settings = await this.open_vault(
           () => this.vault_port.open_vault(default_path),
           open_revision,
         );
       } else {
-        const [recent_vaults, pinned_vault_ids] = await Promise.all([
-          this.vault_port.list_vaults(),
-          this.load_pinned_vault_ids(),
-        ]);
-        this.vault_store.set_recent_vaults(recent_vaults);
-        this.vault_store.set_pinned_vault_ids(pinned_vault_ids);
+        this.vault_store.set_recent_vaults(await this.vault_port.list_vaults());
 
         const current_vault_id = this.get_active_vault_id();
         if (current_vault_id) {
@@ -155,7 +143,7 @@ export class VaultService {
     }
   }
 
-  // The vault list can change while the app runs (web drafts come and go).
+  // The vault list can change while the app runs (drafts come and go).
   async refresh_vault_list(): Promise<void> {
     try {
       const recent_vaults = await this.vault_port.list_vaults();
@@ -163,33 +151,6 @@ export class VaultService {
     } catch (error) {
       log.error("Refresh vault list failed", { error: error_message(error) });
     }
-  }
-
-  async choose_vault_path(): Promise<VaultChoosePathResult> {
-    try {
-      const vault_path = await this.vault_port.choose_vault();
-      if (!vault_path) {
-        return { status: "cancelled" };
-      }
-
-      return {
-        status: "selected",
-        path: vault_path,
-      };
-    } catch (error) {
-      return {
-        status: "failed",
-        error: error_message(error),
-      };
-    }
-  }
-
-  async change_vault_by_path(vault_path: VaultPath): Promise<VaultOpenResult> {
-    return this.change_vault(
-      (revision) =>
-        this.open_vault(() => this.vault_port.open_vault(vault_path), revision),
-      "Choose vault failed",
-    );
   }
 
   async change_vault_by_id(vault_id: VaultId): Promise<VaultOpenResult> {
@@ -201,79 +162,6 @@ export class VaultService {
         ),
       "Select vault failed",
     );
-  }
-
-  async toggle_vault_pin(
-    vault_id: VaultId,
-  ): Promise<{ status: "success" } | { status: "failed"; error: string }> {
-    const exists = this.vault_store.recent_vaults.some(
-      (vault) => vault.id === vault_id,
-    );
-    if (!exists) {
-      return { status: "failed", error: "Vault not found in recent list" };
-    }
-
-    const previous_pinned_ids = [...this.vault_store.pinned_vault_ids];
-    this.start_operation("vault.pin");
-    this.vault_store.toggle_pinned_vault(vault_id);
-
-    try {
-      await this.save_pinned_vault_ids(this.vault_store.pinned_vault_ids);
-      this.succeed_operation("vault.pin");
-      return { status: "success" };
-    } catch (error) {
-      this.vault_store.set_pinned_vault_ids(previous_pinned_ids);
-      const message = this.fail_operation(
-        "vault.pin",
-        "Toggle vault pin failed",
-        error,
-      );
-      return { status: "failed", error: message };
-    }
-  }
-
-  async select_pinned_vault_by_slot(
-    slot: number,
-  ): Promise<VaultOpenResult | { status: "skipped" }> {
-    const vault_id = this.vault_store.get_pinned_vault_id_by_slot(slot);
-    if (!vault_id) {
-      return { status: "skipped" };
-    }
-    return this.change_vault_by_id(vault_id);
-  }
-
-  async remove_vault_from_registry(
-    vault_id: VaultId,
-  ): Promise<{ status: "success" } | { status: "failed"; error: string }> {
-    if (this.vault_store.vault?.id === vault_id) {
-      return { status: "failed", error: "Cannot remove active vault" };
-    }
-
-    const previous_recent_vaults = [...this.vault_store.recent_vaults];
-    const previous_pinned_vault_ids = [...this.vault_store.pinned_vault_ids];
-    this.start_operation("vault.remove");
-
-    try {
-      await this.vault_port.remove_vault(vault_id);
-      const [recent_vaults, pinned_vault_ids] = await Promise.all([
-        this.vault_port.list_vaults(),
-        this.load_pinned_vault_ids(),
-      ]);
-      this.vault_store.set_recent_vaults(recent_vaults);
-      this.vault_store.set_pinned_vault_ids(pinned_vault_ids);
-      await this.save_pinned_vault_ids(this.vault_store.pinned_vault_ids);
-      this.succeed_operation("vault.remove");
-      return { status: "success" };
-    } catch (error) {
-      this.vault_store.set_recent_vaults(previous_recent_vaults);
-      this.vault_store.set_pinned_vault_ids(previous_pinned_vault_ids);
-      const message = this.fail_operation(
-        "vault.remove",
-        "Remove vault from registry failed",
-        error,
-      );
-      return { status: "failed", error: message };
-    }
   }
 
   async rebuild_index(): Promise<
@@ -344,7 +232,7 @@ export class VaultService {
     open_fn: (revision: number) => Promise<EditorSettings>,
     error_label: string,
   ): Promise<VaultOpenResult> {
-    const open_revision = await this.begin_open_revision();
+    const open_revision = this.begin_open_revision();
     this.start_operation("vault.change");
 
     try {
@@ -407,13 +295,9 @@ export class VaultService {
     vault: Vault,
     open_revision: number,
   ): Promise<VaultOpenSnapshot> {
-    await this.vault_port.remember_last_vault(vault.id);
-    this.throw_if_stale(open_revision);
-
-    const [root_contents, recent_vaults, pinned_vault_ids] = await Promise.all([
+    const [root_contents, recent_vaults] = await Promise.all([
       this.notes_port.list_folder_contents(vault.id, "", 0, PAGE_SIZE),
       this.vault_port.list_vaults(),
-      this.load_pinned_vault_ids(),
     ]);
     this.throw_if_stale(open_revision);
 
@@ -424,7 +308,6 @@ export class VaultService {
     return {
       root_contents,
       recent_vaults,
-      pinned_vault_ids,
       recent_notes,
       starred_paths,
       editor_settings,
@@ -441,7 +324,6 @@ export class VaultService {
     this.vault_store.set_vault(vault);
     this.notes_store.merge_folder_contents("", snapshot.root_contents);
     this.vault_store.set_recent_vaults(snapshot.recent_vaults);
-    this.vault_store.set_pinned_vault_ids(snapshot.pinned_vault_ids);
     this.notes_store.set_recent_notes(snapshot.recent_notes);
     this.notes_store.set_starred_paths(snapshot.starred_paths);
     this.notes_store.set_dashboard_stats_loading();
@@ -619,7 +501,7 @@ export class VaultService {
           typeof record.path === "string" &&
           typeof record.name === "string" &&
           typeof record.title === "string" &&
-          typeof record.mtime_ms === "number" &&
+          (typeof record.version === "string" || record.version === null) &&
           typeof record.size_bytes === "number"
         );
       });
@@ -663,26 +545,6 @@ export class VaultService {
     }
   }
 
-  private async save_pinned_vault_ids(vault_ids: VaultId[]): Promise<void> {
-    await this.settings_port.set_setting(PINNED_VAULT_IDS_KEY, vault_ids);
-  }
-
-  private async load_pinned_vault_ids(): Promise<VaultId[]> {
-    try {
-      const stored =
-        await this.settings_port.get_setting<unknown>(PINNED_VAULT_IDS_KEY);
-      if (!stored || !Array.isArray(stored)) {
-        return [];
-      }
-      return stored
-        .filter((entry): entry is string => typeof entry === "string")
-        .map((vault_id) => as_vault_id(vault_id));
-    } catch (error) {
-      log.error("Load pinned vault IDs failed", { error });
-      return [];
-    }
-  }
-
   private reset_app_state() {
     this.vault_store.reset();
     this.notes_store.reset();
@@ -694,18 +556,10 @@ export class VaultService {
     this.op_store.reset("vault.change");
   }
 
-  private async begin_open_revision(): Promise<number> {
-    const current_vault_id = this.get_active_vault_id();
+  private begin_open_revision(): number {
     this.active_open_revision += 1;
     const revision = this.active_open_revision;
     this.clear_open_runtime_subscriptions();
-    if (current_vault_id) {
-      try {
-        await this.index_port.cancel_index(current_vault_id);
-      } catch (error) {
-        log.error("Cancel index failed", { error });
-      }
-    }
     return revision;
   }
 

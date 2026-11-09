@@ -74,7 +74,7 @@ describe("ensure_open_note", () => {
         path: as_note_path("welcome.md"),
         name: "welcome",
         title: "Welcome",
-        mtime_ms: 0,
+        version: null,
         size_bytes: 0,
       },
       markdown: as_markdown_text("hello"),

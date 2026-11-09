@@ -5,12 +5,9 @@
 .env
 node_modules/
 .svelte-kit/
-src-tauri/gen/
 build/
-build-web/
 dist/
 .DS_Store
-src-tauri/target/
 .pnpm-store/
 devlog/
 .design-engineer/

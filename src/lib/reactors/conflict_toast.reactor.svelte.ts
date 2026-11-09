@@ -36,7 +36,7 @@ export function resolve_conflict_toast_target(
 export function create_conflict_toast_callbacks(
   target: NonNullable<ConflictToastTarget>,
   tab_service: Pick<TabService, "clear_conflict" | "invalidate_cache">,
-  note_service: Pick<NoteService, "open_note" | "skip_mtime_guard">,
+  note_service: Pick<NoteService, "open_note" | "keep_local_changes">,
 ): ConflictToastCallbacks {
   return {
     on_reload: () => {
@@ -48,7 +48,7 @@ export function create_conflict_toast_callbacks(
     },
     on_keep: () => {
       tab_service.clear_conflict(target.note_path);
-      note_service.skip_mtime_guard(target.note_id);
+      void note_service.keep_local_changes(target.note_id);
     },
   };
 }

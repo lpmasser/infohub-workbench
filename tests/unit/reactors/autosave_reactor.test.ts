@@ -34,7 +34,7 @@ function create_pending_autosave() {
       path,
       name: "note",
       title: "note",
-      mtime_ms: 10,
+      version: "v10",
       size_bytes: 0,
     },
     markdown: as_markdown_text("before delay"),
@@ -88,7 +88,7 @@ function create_pending_autosave() {
       result: NoteSaveResult = {
         status: "saved",
         saved_path: path,
-        saved_mtime_ms: 20,
+        saved_version: "v20",
       },
     ) {
       finish_save(result);
@@ -107,7 +107,7 @@ describe("autosave.reactor", () => {
     expect(pending.tabs.get_cached_note("note.md")).toMatchObject({
       markdown: "saved text",
       is_dirty: false,
-      meta: { mtime_ms: 20 },
+      meta: { version: "v20" },
     });
   });
 
@@ -119,7 +119,7 @@ describe("autosave.reactor", () => {
     expect(pending.tabs.get_cached_note("note.md")).toMatchObject({
       markdown: "later typing",
       is_dirty: true,
-      meta: { mtime_ms: 20 },
+      meta: { version: "v20" },
     });
     expect(
       pending.tabs.find_tab_by_path(as_note_path("note.md"))?.is_dirty,
@@ -146,7 +146,7 @@ describe("autosave.reactor", () => {
     expect(pending.tabs.get_cached_note("note.md")).toMatchObject({
       markdown: "later cached edit",
       is_dirty: true,
-      meta: { mtime_ms: 20 },
+      meta: { version: "v20" },
     });
     expect(pending.editor.open_note).toEqual(other);
     expect(pending.tabs.active_tab_id).toBe("other.md");
@@ -167,7 +167,11 @@ describe("autosave.reactor", () => {
       await pending.finish(
         status === "conflict"
           ? { status }
-          : { status, saved_path: as_note_path("note.md"), saved_mtime_ms: 20 },
+          : {
+              status,
+              saved_path: as_note_path("note.md"),
+              saved_version: "v20",
+            },
       );
       expect(pending.tabs.get_cached_note("note.md")).toEqual(replacement);
       expect(pending.mark_clean).not.toHaveBeenCalled();

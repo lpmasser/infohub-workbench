@@ -1,4 +1,4 @@
-/* Bundled locally so the desktop app does not need a font service. */
+/* Bundled with the page so it does not depend on a font service. */
 @font-face {
   font-family: "IBM Plex Sans";
   src: url("/fonts/IBMPlexSans-Variable.ttf") format("truetype");

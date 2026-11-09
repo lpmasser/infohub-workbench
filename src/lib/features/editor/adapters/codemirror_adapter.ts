@@ -72,10 +72,8 @@ type AdapterOptions = {
     path: AssetPath,
   ) => string | Promise<string>;
   copy_text: (text: string) => Promise<void>;
-  // Outside a vault (a document window), relative images resolve here.
-  resolve_document_asset_url?: (relative_path: string) => string;
-  // Buffers of a read-only vault (a web source other than the workspace)
-  // can be read, selected and followed, but not changed.
+  // Buffers of a read-only vault (main or a draft) can be read, selected
+  // and followed, but not changed.
   is_read_only_vault?: (vault_id: VaultId | null) => boolean;
 };
 const read_only_buffer: Extension = [
@@ -190,11 +188,7 @@ export function create_codemirror_editor_port(
           resolve_image(source, signal) {
             if (signal.aborted) return "";
             if (/^[a-z][a-z0-9+.-]*:/i.test(source)) return source;
-            if (!current.vault_id) {
-              return options.resolve_document_asset_url
-                ? options.resolve_document_asset_url(decode_asset_path(source))
-                : source;
-            }
+            if (!current.vault_id) return source;
             const path = resolve_relative_asset_path(
               current.note_path,
               decode_asset_path(source),

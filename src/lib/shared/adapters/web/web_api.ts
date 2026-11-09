@@ -5,6 +5,12 @@ export type WebSourceId = string;
 
 export const WORKSPACE_SOURCE: WebSourceId = "workspace";
 
+// Only the user's workspace is writable; main and drafts are read-only.
+export function require_workspace(source: WebSourceId): void {
+  if (source !== WORKSPACE_SOURCE)
+    throw new Error("只读来源不能修改，请切换到我的工作区");
+}
+
 export type WebApiErrorDetails = {
   path?: string;
   current_version?: string | null;

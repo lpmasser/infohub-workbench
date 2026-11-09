@@ -1,4 +1,3 @@
-import { create_app_exit_reactor } from "./app_exit.reactor.svelte";
 import { create_workspace_queries_reactor } from "./workspace_queries.reactor.svelte";
 import type { InfoHubService, InfoHubStore } from "$lib/features/infohub";
 import { create_editor_sync_reactor } from "$lib/reactors/editor_sync.reactor.svelte";
@@ -11,17 +10,12 @@ import { create_recent_notes_persist_reactor } from "$lib/reactors/recent_notes_
 import { create_starred_persist_reactor } from "$lib/reactors/starred_persist.reactor.svelte";
 import { create_tab_dirty_sync_reactor } from "$lib/reactors/tab_dirty_sync.reactor.svelte";
 import { create_session_persist_reactor } from "$lib/reactors/session_persist.reactor.svelte";
-import { create_git_autocommit_reactor } from "$lib/reactors/git_autocommit.reactor.svelte";
 import { create_recent_commands_persist_reactor } from "$lib/reactors/recent_commands_persist.reactor.svelte";
 import { create_find_in_file_reactor } from "$lib/reactors/find_in_file.reactor.svelte";
-import { create_backlinks_sync_reactor } from "$lib/reactors/backlinks_sync.reactor.svelte";
-import { create_local_links_sync_reactor } from "$lib/reactors/local_links_sync.reactor.svelte";
 import { create_watcher_reactor } from "$lib/reactors/watcher.reactor.svelte";
 import { create_window_title_reactor } from "$lib/reactors/window_title.reactor.svelte";
 import { create_conflict_toast_reactor } from "$lib/reactors/conflict_toast.reactor.svelte";
 import { ConflictToastManager } from "$lib/reactors/conflict_toast";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { is_tauri } from "$lib/shared/utils/detect_platform";
 import type { EditorStore } from "$lib/features/editor";
 import type { UIStore } from "$lib/app";
 import type { OpStore } from "$lib/app";
@@ -34,16 +28,11 @@ import type { VaultService } from "$lib/features/vault";
 import type { SettingsService } from "$lib/features/settings";
 import type { SessionService } from "$lib/features/session";
 import type { TabService } from "$lib/features/tab";
-import type { GitStore } from "$lib/features/git";
-import type { GitService } from "$lib/features/git";
-import type { LinksService } from "$lib/features/links";
 import type { SearchService, SearchStore } from "$lib/features/search";
-import type { LinksStore } from "$lib/features/links";
 import type { WatcherService } from "$lib/features/watcher";
 import type { ActionRegistry } from "$lib/app/action_registry/action_registry";
 
 export type ReactorContext = {
-  update_blocked: () => boolean;
   infohub_service: InfoHubService;
   infohub_store: InfoHubStore;
   editor_store: EditorStore;
@@ -54,16 +43,12 @@ export type ReactorContext = {
   search_service: SearchService;
   vault_store: VaultStore;
   tab_store: TabStore;
-  git_store: GitStore;
-  links_store: LinksStore;
   editor_service: EditorService;
   note_service: NoteService;
   vault_service: VaultService;
   settings_service: SettingsService;
   session_service: SessionService;
   tab_service: TabService;
-  git_service: GitService;
-  links_service: LinksService;
   watcher_service: WatcherService;
   action_registry: ActionRegistry;
 };
@@ -72,7 +57,6 @@ export function mount_reactors(context: ReactorContext): () => void {
   const conflict_toast_manager = new ConflictToastManager();
 
   const unmounts = [
-    create_app_exit_reactor(context.update_blocked),
     create_workspace_queries_reactor(context),
     create_editor_sync_reactor(
       context.editor_store,
@@ -121,13 +105,6 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.vault_store,
       context.session_service,
     ),
-    create_git_autocommit_reactor(
-      context.editor_store,
-      context.tab_store,
-      context.git_store,
-      context.ui_store,
-      context.git_service,
-    ),
     create_recent_commands_persist_reactor(
       context.ui_store,
       context.settings_service,
@@ -139,25 +116,11 @@ export function mount_reactors(context: ReactorContext): () => void {
       context.editor_service,
       context.search_service,
     ),
-    create_local_links_sync_reactor(
-      context.editor_store,
-      context.ui_store,
-      context.links_service,
-    ),
-    create_backlinks_sync_reactor(
-      context.editor_store,
-      context.tab_store,
-      context.ui_store,
-      context.search_store,
-      context.links_store,
-      context.links_service,
-    ),
     create_window_title_reactor(
       context.vault_store,
       context.tab_store,
       (title) => {
-        if (is_tauri) void getCurrentWindow().setTitle(title);
-        else document.title = title;
+        document.title = title;
       },
     ),
     create_watcher_reactor(

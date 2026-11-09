@@ -10,10 +10,6 @@ import type {
 } from "$lib/shared/types/editor_settings";
 import { DEFAULT_EDITOR_SETTINGS } from "$lib/shared/types/editor_settings";
 import type { NoteMeta } from "$lib/shared/types/note";
-import type {
-  LegacyCleanupPreview,
-  MarkdownCleanupBackupInfo,
-} from "$lib/features/note";
 import type { NoteId, NotePath, VaultId } from "$lib/shared/types/ids";
 import type {
   FolderLoadState,
@@ -31,7 +27,6 @@ import { SvelteMap, SvelteSet } from "svelte/reactivity";
 
 type AsyncStatus = "idle" | "loading" | "error";
 export type SidebarView = "explorer" | "dashboard" | "starred" | "overview";
-type ContextRailTab = "links";
 
 const INITIAL_DELETE_NOTE_DIALOG = { open: false, note: null } as const;
 
@@ -50,26 +45,6 @@ const INITIAL_SAVE_NOTE_DIALOG = {
   show_overwrite_confirm: false,
   is_checking_existence: false,
   source: "manual" as "manual" | "tab_close",
-} as const;
-
-const INITIAL_CREATE_FOLDER_DIALOG = {
-  open: false,
-  parent_path: "",
-  folder_name: "",
-} as const;
-
-const INITIAL_DELETE_FOLDER_DIALOG = {
-  open: false,
-  folder_path: null,
-  affected_note_count: 0,
-  affected_folder_count: 0,
-  status: "idle",
-} as const;
-
-const INITIAL_RENAME_FOLDER_DIALOG = {
-  open: false,
-  folder_path: null,
-  new_name: "",
 } as const;
 
 const INITIAL_FILETREE_MOVE_CONFLICT_DIALOG = {
@@ -128,29 +103,6 @@ const INITIAL_TAB_CLOSE_CONFIRM = {
   apply_to_all: false,
 };
 
-const INITIAL_VERSION_HISTORY_DIALOG = {
-  open: false,
-  note_path: null,
-} as const;
-
-const INITIAL_MARKDOWN_CLEANUP_DIALOG = {
-  open: false,
-  is_loading: false,
-  operation_label: "",
-  error: null as string | null,
-  preview: null as LegacyCleanupPreview | null,
-  backup: null as MarkdownCleanupBackupInfo | null,
-  compact_simple_lists: true,
-  applied_count: 0,
-  restored_count: 0,
-  skipped_restore_count: 0,
-};
-
-const INITIAL_CHECKPOINT_DIALOG = {
-  open: false,
-  description: "",
-} as const;
-
 const INITIAL_HOTKEY_RECORDER: HotkeyRecorderState = {
   open: false,
   action_id: null,
@@ -195,7 +147,6 @@ export class UIStore {
   selected_items = $state(new SvelteSet<string>());
   selection_anchor = $state<string | null>(null);
   editor_settings = $state<EditorSettings>({ ...DEFAULT_EDITOR_SETTINGS });
-  system_dialog_open = $state(false);
   recent_command_ids = $state<string[]>([]);
 
   startup = $state<{ status: AsyncStatus; error: string | null }>({
@@ -237,26 +188,6 @@ export class UIStore {
     is_checking_existence: boolean;
     source: "manual" | "tab_close";
   }>({ ...INITIAL_SAVE_NOTE_DIALOG });
-
-  create_folder_dialog = $state<{
-    open: boolean;
-    parent_path: string;
-    folder_name: string;
-  }>({ ...INITIAL_CREATE_FOLDER_DIALOG });
-
-  delete_folder_dialog = $state<{
-    open: boolean;
-    folder_path: string | null;
-    affected_note_count: number;
-    affected_folder_count: number;
-    status: "idle" | "fetching_stats" | "confirming" | "error";
-  }>({ ...INITIAL_DELETE_FOLDER_DIALOG });
-
-  rename_folder_dialog = $state<{
-    open: boolean;
-    folder_path: string | null;
-    new_name: string;
-  }>({ ...INITIAL_RENAME_FOLDER_DIALOG });
 
   filetree_move_conflict_dialog = $state<{
     open: boolean;
@@ -331,26 +262,6 @@ export class UIStore {
     keep_tab_id: string | null;
     apply_to_all: boolean;
   }>({ ...INITIAL_TAB_CLOSE_CONFIRM });
-
-  version_history_dialog = $state<{
-    open: boolean;
-    note_path: NotePath | null;
-  }>({ ...INITIAL_VERSION_HISTORY_DIALOG });
-  markdown_cleanup_dialog = $state({ ...INITIAL_MARKDOWN_CLEANUP_DIALOG });
-
-  checkpoint_dialog = $state<{
-    open: boolean;
-    description: string;
-  }>({ ...INITIAL_CHECKPOINT_DIALOG });
-
-  // Document windows only: closing with unsaved edits asks first.
-  document_close_confirm = $state<{ open: boolean; is_closing: boolean }>({
-    open: false,
-    is_closing: false,
-  });
-
-  context_rail_open = $state(false);
-  context_rail_tab = $state<ContextRailTab>("links");
 
   hotkeys_config = $state<HotkeyConfig>({ bindings: [] });
 
@@ -447,22 +358,9 @@ export class UIStore {
     this.filetree_scoped_root_path = null;
   }
 
-  toggle_context_rail() {
-    this.context_rail_open = !this.context_rail_open;
-  }
-
-  set_context_rail_tab(tab: ContextRailTab) {
-    this.context_rail_tab = tab;
-    this.context_rail_open = true;
-  }
-
   set_editor_settings(settings: EditorSettings) {
     this.editor_settings = settings;
     this.settings_dialog.current_settings = settings;
-  }
-
-  set_system_dialog_open(open: boolean) {
-    this.system_dialog_open = open;
   }
 
   set_recent_command_ids(ids: string[]) {
@@ -484,9 +382,6 @@ export class UIStore {
     this.delete_note_dialog = { ...INITIAL_DELETE_NOTE_DIALOG };
     this.rename_note_dialog = { ...INITIAL_RENAME_NOTE_DIALOG };
     this.save_note_dialog = { ...INITIAL_SAVE_NOTE_DIALOG };
-    this.create_folder_dialog = { ...INITIAL_CREATE_FOLDER_DIALOG };
-    this.delete_folder_dialog = { ...INITIAL_DELETE_FOLDER_DIALOG };
-    this.rename_folder_dialog = { ...INITIAL_RENAME_FOLDER_DIALOG };
     this.settings_dialog = initial_settings_dialog(this.editor_settings);
     this.omnibar = { ...INITIAL_OMNIBAR };
     this.find_in_file = { ...INITIAL_FIND_IN_FILE };
@@ -502,10 +397,5 @@ export class UIStore {
     this.help_dialog = { ...INITIAL_HELP_DIALOG };
     this.vault_dashboard = { ...INITIAL_VAULT_DASHBOARD };
     this.tab_close_confirm = { ...INITIAL_TAB_CLOSE_CONFIRM };
-    this.version_history_dialog = { ...INITIAL_VERSION_HISTORY_DIALOG };
-    this.markdown_cleanup_dialog = { ...INITIAL_MARKDOWN_CLEANUP_DIALOG };
-    this.checkpoint_dialog = { ...INITIAL_CHECKPOINT_DIALOG };
-    this.context_rail_open = false;
-    this.context_rail_tab = "links";
   }
 }

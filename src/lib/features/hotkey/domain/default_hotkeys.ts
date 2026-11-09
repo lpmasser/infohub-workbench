@@ -83,22 +83,6 @@ export const DEFAULT_HOTKEYS: HotkeyBinding[] = [
     category: "navigation",
   },
   {
-    action_id: ACTION_IDS.git_open_history,
-    key: "CmdOrCtrl+Shift+H",
-    phase: "capture",
-    label: "Open Version History",
-    description: "View git history for current note",
-    category: "navigation",
-  },
-  {
-    action_id: ACTION_IDS.ui_toggle_context_rail,
-    key: "CmdOrCtrl+Shift+L",
-    phase: "capture",
-    label: "Toggle Links Panel",
-    description: "Show or hide the links panel",
-    category: "navigation",
-  },
-  {
     action_id: ACTION_IDS.tab_close,
     key: "CmdOrCtrl+W",
     phase: "capture",

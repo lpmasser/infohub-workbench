@@ -1,7 +1,5 @@
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
-import { is_unavailable_vault_error } from "$lib/features/vault/domain/vault_errors";
-import type { VaultId } from "$lib/shared/types/ids";
 import type { OpenNoteState } from "$lib/shared/types/editor";
 import { toast } from "svelte-sonner";
 import { apply_opened_vault_session } from "./vault_action_helpers";
@@ -52,10 +50,7 @@ export function register_vault_actions(input: ActionRegistrationInput) {
 
   const handle_open_result = async (
     request_revision: number,
-    result:
-      | Awaited<ReturnType<typeof services.vault.change_vault_by_id>>
-      | Awaited<ReturnType<typeof services.vault.select_pinned_vault_by_slot>>,
-    attempted_vault_id?: VaultId,
+    result: Awaited<ReturnType<typeof services.vault.change_vault_by_id>>,
   ) => {
     if (request_revision !== change_vault_request_revision) {
       return;
@@ -70,27 +65,12 @@ export function register_vault_actions(input: ActionRegistrationInput) {
     if (result.status === "stale") {
       return;
     }
-    if (result.status === "skipped") {
-      stores.ui.change_vault = {
-        ...stores.ui.change_vault,
-        is_loading: false,
-        error: null,
-        unsaved_note_label: null,
-      };
-      services.vault.reset_change_operation();
-      return;
-    }
-
     stores.ui.change_vault = {
       ...stores.ui.change_vault,
       is_loading: false,
       error: result.error,
       unsaved_note_label: null,
     };
-
-    if (attempted_vault_id && is_unavailable_vault_error(result.error)) {
-      stores.vault.set_vault_availability(attempted_vault_id, false);
-    }
   };
 
   registry.register({
@@ -121,54 +101,6 @@ export function register_vault_actions(input: ActionRegistrationInput) {
   });
 
   registry.register({
-    id: ACTION_IDS.vault_choose,
-    label: "Choose Vault",
-    execute: async () => {
-      await run_with_unsaved_confirm(async () => {
-        const request_revision = ++change_vault_request_revision;
-        stores.ui.change_vault = {
-          ...stores.ui.change_vault,
-          is_loading: true,
-          error: null,
-        };
-
-        stores.ui.set_system_dialog_open(true);
-        const path_result = await services.vault.choose_vault_path();
-        stores.ui.set_system_dialog_open(false);
-
-        if (request_revision !== change_vault_request_revision) {
-          return;
-        }
-
-        if (path_result.status === "cancelled") {
-          stores.ui.change_vault = {
-            ...stores.ui.change_vault,
-            is_loading: false,
-            unsaved_note_label: null,
-          };
-          services.vault.reset_change_operation();
-          return;
-        }
-
-        if (path_result.status === "failed") {
-          stores.ui.change_vault = {
-            ...stores.ui.change_vault,
-            is_loading: false,
-            error: path_result.error,
-            unsaved_note_label: null,
-          };
-          return;
-        }
-
-        const result = await services.vault.change_vault_by_path(
-          path_result.path,
-        );
-        await handle_open_result(request_revision, result);
-      });
-    },
-  });
-
-  registry.register({
     id: ACTION_IDS.vault_select,
     label: "Select Vault",
     execute: async (vault_id: unknown) => {
@@ -185,28 +117,6 @@ export function register_vault_actions(input: ActionRegistrationInput) {
 
         const result =
           await services.vault.change_vault_by_id(selected_vault_id);
-        await handle_open_result(request_revision, result, selected_vault_id);
-      });
-    },
-  });
-
-  registry.register({
-    id: ACTION_IDS.vault_select_pinned_slot,
-    label: "Select Pinned Vault Slot",
-    execute: async (slot: unknown) => {
-      if (typeof slot !== "number" || !Number.isInteger(slot) || slot < 0) {
-        return;
-      }
-
-      await run_with_unsaved_confirm(async () => {
-        stores.ui.change_vault = {
-          ...stores.ui.change_vault,
-          is_loading: true,
-          error: null,
-        };
-
-        const request_revision = ++change_vault_request_revision;
-        const result = await services.vault.select_pinned_vault_by_slot(slot);
         await handle_open_result(request_revision, result);
       });
     },
@@ -298,12 +208,13 @@ export function register_vault_actions(input: ActionRegistrationInput) {
             throw new Error("missing cached note");
           }
 
-          const saved_mtime_ms = await services.note.write_note_content(
+          const saved_version = await services.note.write_note_content(
             cached.meta.path,
             cached.markdown,
+            cached.meta.version,
           );
           if (!is_current_request()) return;
-          if (saved_mtime_ms === undefined) throw new Error("write skipped");
+          if (saved_version === undefined) throw new Error("write skipped");
           services.editor.flush();
           const active = stores.editor.open_note;
           const is_active = active?.meta.path === cached.meta.path;
@@ -319,12 +230,12 @@ export function register_vault_actions(input: ActionRegistrationInput) {
           const is_dirty = latest.markdown !== cached.markdown;
           stores.tab.set_cached_note(tab.id, {
             ...latest,
-            meta: { ...latest.meta, mtime_ms: saved_mtime_ms },
+            meta: { ...latest.meta, version: saved_version },
             is_dirty,
           });
           stores.tab.set_dirty(tab.id, is_dirty);
           if (is_active)
-            stores.editor.update_mtime(latest.meta.id, saved_mtime_ms);
+            stores.editor.update_version(latest.meta.id, saved_version);
           services.editor.mark_clean(cached.meta.path, cached.markdown);
           if (is_dirty) throw new Error("note changed during save");
           saved_notes.set(tab.id, cached);
@@ -385,36 +296,6 @@ export function register_vault_actions(input: ActionRegistrationInput) {
         error: null,
         unsaved_note_label: null,
       };
-    },
-  });
-
-  registry.register({
-    id: ACTION_IDS.vault_remove_from_registry,
-    label: "Remove Vault From Registry",
-    execute: async (vault_id: unknown) => {
-      if (typeof vault_id !== "string") {
-        return;
-      }
-      const result = await services.vault.remove_vault_from_registry(
-        vault_id as VaultId,
-      );
-      if (result.status === "failed") {
-        toast.error(result.error);
-      }
-    },
-  });
-
-  registry.register({
-    id: ACTION_IDS.vault_toggle_pin,
-    label: "Toggle Vault Pin",
-    execute: async (vault_id: unknown) => {
-      if (typeof vault_id !== "string") {
-        return;
-      }
-      const result = await services.vault.toggle_vault_pin(vault_id as VaultId);
-      if (result.status === "failed") {
-        toast.error(result.error);
-      }
     },
   });
 

@@ -150,7 +150,6 @@ describe("CodeMirror editor port", () => {
         has_tabs: () => true,
         action_registry: registry,
         on_close_vault_switcher: vi.fn(),
-        on_select_pinned_vault: vi.fn(),
         on_switch_to_tab: vi.fn(),
       });
       root.addEventListener("keydown", keyboard.handle_keydown_capture, true);

@@ -27,7 +27,6 @@ export function use_keyboard_shortcuts(input: {
   has_tabs: () => boolean;
   action_registry: ActionRegistry;
   on_close_vault_switcher: () => void;
-  on_select_pinned_vault: (slot: number) => void;
   on_switch_to_tab: (index: number) => void;
 }): KeyboardShortcuts {
   const {
@@ -40,7 +39,6 @@ export function use_keyboard_shortcuts(input: {
     has_tabs,
     action_registry,
     on_close_vault_switcher,
-    on_select_pinned_vault,
     on_switch_to_tab,
   } = input;
 
@@ -100,11 +98,7 @@ export function use_keyboard_shortcuts(input: {
       event.preventDefault();
       event.stopPropagation();
       if (is_blocked()) return;
-      if (has_tabs()) {
-        on_switch_to_tab(slot);
-      } else if (slot < 5) {
-        on_select_pinned_vault(slot);
-      }
+      if (has_tabs()) on_switch_to_tab(slot);
       return;
     }
 

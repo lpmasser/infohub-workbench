@@ -5,7 +5,9 @@ export type NoteMeta = {
   path: NotePath;
   name: string;
   title: string;
-  mtime_ms: number;
+  // Server version (ETag) of the text this meta describes; null when this
+  // page has not read the file, as for tree listings and new notes.
+  version: string | null;
   size_bytes: number;
 };
 

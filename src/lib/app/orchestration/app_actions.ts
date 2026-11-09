@@ -143,7 +143,7 @@ async function execute_app_mounted(input: ActionRegistrationInput) {
   if (started_at !== null) {
     log.debug("App bootstrap ready", {
       duration_ms: performance.now() - started_at,
-      // Includes frontend loading since navigation, but not native process launch.
+      // Time since navigation, including page load.
       navigation_ready_ms: performance.now(),
     });
   }

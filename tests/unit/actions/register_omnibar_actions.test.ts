@@ -11,12 +11,7 @@ import { EditorStore } from "$lib/features/editor/state/editor_store.svelte";
 import { OpStore } from "$lib/app/orchestration/op_store.svelte";
 import { SearchStore } from "$lib/features/search/state/search_store.svelte";
 import { TabStore } from "$lib/features/tab/state/tab_store.svelte";
-import { GitStore } from "$lib/features/git/state/git_store.svelte";
-import {
-  as_note_path,
-  as_vault_id,
-  as_vault_path,
-} from "$lib/shared/types/ids";
+import { as_note_path, as_vault_id } from "$lib/shared/types/ids";
 import { create_test_note, create_test_vault } from "../helpers/test_fixtures";
 
 function create_omnibar_actions_harness() {
@@ -29,7 +24,6 @@ function create_omnibar_actions_harness() {
     op: new OpStore(),
     search: new SearchStore(),
     tab: new TabStore(),
-    git: new GitStore(),
   };
   const execute_vault_select = vi.fn((vault_id: unknown) => {
     stores.vault.set_vault(
@@ -230,7 +224,7 @@ describe("register_omnibar_actions", () => {
                 path: as_note_path("ml.md"),
                 name: "ml",
                 title: "ML",
-                mtime_ms: 0,
+                version: null,
                 size_bytes: 0,
               },
               score: 0.9,
@@ -403,34 +397,5 @@ describe("register_omnibar_actions", () => {
     expect(services.search.search_notes_all_vaults).toHaveBeenCalledWith(
       "machine learning",
     );
-  });
-
-  it("does not prompt switch for vault already marked unavailable", async () => {
-    const { registry, stores, execute_vault_select, execute_note_open } =
-      create_omnibar_actions_harness();
-    const target_vault_id = as_vault_id("vault-b");
-    stores.vault.set_recent_vaults([
-      {
-        id: target_vault_id,
-        name: "Vault B",
-        path: as_vault_path("/vault/b"),
-        created_at: 1,
-        is_available: false,
-      },
-    ]);
-
-    await registry.execute(ACTION_IDS.omnibar_confirm_item, {
-      kind: "cross_vault_note",
-      note: create_test_note("docs/alpha", "Alpha"),
-      vault_id: target_vault_id,
-      vault_name: "Vault B",
-      vault_is_available: false,
-      score: 1,
-      snippet: "alpha",
-    });
-
-    expect(stores.ui.cross_vault_open_confirm.open).toBe(false);
-    expect(execute_vault_select).not.toHaveBeenCalled();
-    expect(execute_note_open).not.toHaveBeenCalled();
   });
 });

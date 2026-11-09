@@ -1,10 +1,9 @@
 .svelte-kit
 build
-build-web
 dist
 node_modules
 .pnpm-store
-src-tauri/target
 src/lib/components/ui
 pnpm-lock.yaml
 *.min.js
+licenses

@@ -1,5 +1,4 @@
 import { untrack } from "svelte";
-import { install_app_exit } from "$lib/app/orchestration/app_exit";
 import { InfoHubService } from "$lib/features/infohub";
 import type { Ports } from "$lib/app/di/app_ports";
 import { create_app_stores } from "$lib/app/bootstrap/create_app_stores";
@@ -8,7 +7,7 @@ import { ActionRegistry } from "$lib/app/action_registry/action_registry";
 import { register_actions } from "$lib/app/action_registry/register_actions";
 import type { AppMountConfig } from "$lib/features/vault";
 import { VaultService } from "$lib/features/vault";
-import { NoteService, LegacyMarkdownCleanupService } from "$lib/features/note";
+import { NoteService, is_draft_note_path } from "$lib/features/note";
 import { FolderService } from "$lib/features/folder";
 import { SettingsService } from "$lib/features/settings";
 import { SearchService } from "$lib/features/search";
@@ -17,13 +16,10 @@ import { ClipboardService } from "$lib/features/clipboard";
 import { ShellService } from "$lib/features/shell";
 import { SessionService } from "$lib/features/session";
 import { TabService } from "$lib/features/tab";
-import { GitService } from "$lib/features/git";
 import { HotkeyService } from "$lib/features/hotkey";
 import { ThemeService } from "$lib/features/theme";
-import { LinkRepairService, LinksService } from "$lib/features/links";
 import { WatcherService } from "$lib/features/watcher";
 import { mount_reactors } from "$lib/reactors";
-import { is_web_build } from "$lib/app/runtime_target";
 
 export type AppContext = ReturnType<typeof create_app_context>;
 
@@ -31,8 +27,8 @@ export function create_app_context(input: {
   ports: Ports;
   now_ms?: () => number;
   default_mount_config: AppMountConfig;
-  // Browser build only: ends the server session.
-  sign_out?: () => Promise<void>;
+  // Ends the server session.
+  sign_out: () => Promise<void>;
 }) {
   const now_ms = input.now_ms ?? (() => Date.now());
   const stores = create_app_stores();
@@ -99,25 +95,12 @@ export function create_app_context(input: {
     now_ms,
   );
 
-  const link_repair_service = new LinkRepairService(
-    input.ports.notes,
-    input.ports.search,
-    input.ports.index,
-    stores.editor,
-    stores.tab,
-    now_ms,
-    (path) => {
-      editor_service.close_buffer(path);
-    },
-  );
-
   const watcher_service = new WatcherService(input.ports.watcher, (vault_id) =>
     input.ports.index.sync_index(vault_id),
   );
 
   const note_service = new NoteService(
     input.ports.notes,
-    input.ports.index,
     input.ports.assets,
     stores.vault,
     stores.notes,
@@ -125,34 +108,16 @@ export function create_app_context(input: {
     stores.op,
     editor_service,
     now_ms,
-    // The web page has no link index to find and rewrite references with.
-    is_web_build ? null : link_repair_service,
-  );
-
-  const markdown_cleanup_service = new LegacyMarkdownCleanupService(
-    input.ports.notes,
-    input.ports.index,
-    stores.vault,
-    stores.tab,
-    stores.editor,
-    editor_service,
-    stores.notes,
-    now_ms,
-    async (path) => {
-      await note_service.open_note(path, false, { force_reload: true });
-    },
   );
 
   const folder_service = new FolderService(
     input.ports.notes,
-    input.ports.index,
     stores.vault,
     stores.notes,
     stores.editor,
     stores.tab,
     stores.op,
     now_ms,
-    is_web_build ? null : link_repair_service,
   );
 
   const shell_service = new ShellService(input.ports.shell, stores.vault);
@@ -174,20 +139,6 @@ export function create_app_context(input: {
     stores.notes,
     editor_service,
     note_service,
-  );
-
-  const git_service = new GitService(
-    input.ports.git,
-    stores.vault,
-    stores.git,
-    stores.op,
-    now_ms,
-  );
-
-  const links_service = new LinksService(
-    input.ports.search,
-    stores.vault,
-    stores.links,
   );
 
   const hotkey_service = new HotkeyService(
@@ -226,12 +177,10 @@ export function create_app_context(input: {
       op: stores.op,
       search: stores.search,
       tab: stores.tab,
-      git: stores.git,
     },
     services: {
       vault: vault_service,
       note: note_service,
-      markdown_cleanup: markdown_cleanup_service,
       folder: folder_service,
       settings: settings_service,
       search: search_service,
@@ -240,40 +189,35 @@ export function create_app_context(input: {
       shell: shell_service,
       session: session_service,
       tab: tab_service,
-      git: git_service,
       hotkey: hotkey_service,
       theme: theme_service,
     },
     default_mount_config: input.default_mount_config,
   });
 
-  const sign_out = input.sign_out;
-  if (sign_out)
-    action_registry.register({
-      id: ACTION_IDS.app_sign_out,
-      label: "退出登录",
-      execute: async () => {
-        await session_service.save_latest_session();
-        await sign_out();
-      },
-    });
+  action_registry.register({
+    id: ACTION_IDS.app_sign_out,
+    label: "退出登录",
+    execute: async () => {
+      await session_service.save_latest_session();
+      await input.sign_out();
+    },
+  });
 
-  const is_loading = () =>
-    stores.ui.startup.status === "loading" ||
-    stores.ui.startup.status === "error" ||
-    stores.ui.change_vault.is_loading ||
-    stores.ui.change_vault.error !== null;
+  // Unsaved text also survives in the browser session, but leaving the page
+  // before it reaches the server deserves a prompt.
   const has_unsaved = () =>
     editor_service.is_dirty() ||
-    Boolean(stores.editor.open_note?.is_dirty) ||
-    stores.tab.tabs.some((tab) => tab.is_dirty);
-  const cleanup_exit = install_app_exit(
-    session_service,
-    is_loading,
-    has_unsaved,
-  );
+    stores.tab.tabs.some(
+      (tab) => tab.is_dirty && !is_draft_note_path(tab.note_path),
+    );
+  const warn_before_unload = (event: BeforeUnloadEvent) => {
+    void session_service.save_latest_session();
+    if (has_unsaved()) event.preventDefault();
+  };
+  window.addEventListener("beforeunload", warn_before_unload);
+
   const cleanup_reactors = mount_reactors({
-    update_blocked: () => is_loading() || has_unsaved(),
     infohub_service,
     infohub_store: stores.infohub,
     editor_store: stores.editor,
@@ -284,16 +228,12 @@ export function create_app_context(input: {
     search_service,
     vault_store: stores.vault,
     tab_store: stores.tab,
-    git_store: stores.git,
-    links_store: stores.links,
     editor_service,
     note_service,
     vault_service,
     settings_service,
     tab_service,
     session_service,
-    git_service,
-    links_service,
     watcher_service,
     action_registry,
   });
@@ -302,7 +242,7 @@ export function create_app_context(input: {
     stores,
     action_registry,
     destroy: () => {
-      cleanup_exit();
+      window.removeEventListener("beforeunload", warn_before_unload);
       cleanup_reactors();
       editor_service.unmount();
       void watcher_service.stop();

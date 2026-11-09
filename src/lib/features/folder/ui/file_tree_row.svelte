@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { is_web_build } from "$lib/app/runtime_target";
   import { SyncMarker } from "$lib/features/infohub";
   import type { FlatTreeNode } from "$lib/shared/types/filetree";
   import type { NoteMeta } from "$lib/shared/types/note";
@@ -15,17 +14,14 @@
     CircleAlert,
     RefreshCw,
     FilePlus,
-    FolderPlus,
     Star,
     StarOff,
     Copy,
     Search,
     X,
-    FolderOpen,
     ExternalLink,
   } from "@lucide/svelte";
   import { toast } from "svelte-sonner";
-  import { reveal_in_file_manager_label } from "$lib/shared/utils/file_manager_label";
 
   type Props = {
     node: FlatTreeNode;
@@ -59,16 +55,12 @@
     on_select_folder: (path: string) => void;
     on_request_delete?: ((note: NoteMeta) => void) | undefined;
     on_request_rename?: ((note: NoteMeta) => void) | undefined;
-    on_request_delete_folder?: ((folder_path: string) => void) | undefined;
-    on_request_rename_folder?: ((folder_path: string) => void) | undefined;
     on_request_create_note?: (() => void) | undefined;
-    on_request_create_folder?: ((folder_path: string) => void) | undefined;
     on_toggle_star?: ((path: string) => void) | undefined;
     scoped_root_path?: string | null;
     on_scope_to_folder?: ((folder_path: string) => void) | undefined;
     on_clear_scope?: (() => void) | undefined;
-    on_reveal_in_file_manager?: ((path: string) => void) | undefined;
-    on_open_in_default_app?: ((path: string) => void) | undefined;
+    on_open_file?: ((path: string) => void) | undefined;
     selection_count?: number;
     all_selected_starred?: boolean;
     on_retry_load: (path: string) => void;
@@ -95,16 +87,12 @@
     on_select_folder,
     on_request_delete,
     on_request_rename,
-    on_request_delete_folder,
-    on_request_rename_folder,
     on_request_create_note,
-    on_request_create_folder,
     on_toggle_star,
     scoped_root_path = null,
     on_scope_to_folder,
     on_clear_scope,
-    on_reveal_in_file_manager,
-    on_open_in_default_app,
+    on_open_file,
     selection_count = 1,
     all_selected_starred = false,
     on_retry_load,
@@ -183,7 +171,6 @@
   }
 
   const can_scope = $derived(!!on_scope_to_folder || !!on_clear_scope);
-  const reveal_label = reveal_in_file_manager_label();
 </script>
 
 {#snippet row_content()}
@@ -308,25 +295,13 @@
             {/if}
           </ContextMenu.Item>
         {:else}
-          <ContextMenu.Item
-            onSelect={() => {
-              on_request_create_note?.();
-            }}
-          >
-            <FilePlus class="mr-2 h-4 w-4" />
-            <span>New Note</span>
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            onSelect={() => {
-              if (on_request_create_folder) {
-                on_request_create_folder(node.path);
-              }
-            }}
-          >
-            <FolderPlus class="mr-2 h-4 w-4" />
-            <span>New Folder</span>
-          </ContextMenu.Item>
-          <ContextMenu.Separator />
+          {#if on_request_create_note}
+            <ContextMenu.Item onSelect={() => on_request_create_note()}>
+              <FilePlus class="mr-2 h-4 w-4" />
+              <span>New Note</span>
+            </ContextMenu.Item>
+            <ContextMenu.Separator />
+          {/if}
           <ContextMenu.Item onSelect={() => on_toggle_star?.(node.path)}>
             {#if is_starred}
               <StarOff class="mr-2 h-4 w-4" />
@@ -356,38 +331,6 @@
                   <span>Clear Scope</span>
                 </ContextMenu.Item>
               {/if}
-            {/if}
-          {/if}
-          {#if on_reveal_in_file_manager}
-            <ContextMenu.Separator />
-            <ContextMenu.Item
-              onSelect={() => on_reveal_in_file_manager(node.path)}
-            >
-              <FolderOpen class="mr-2 h-4 w-4" />
-              <span>{reveal_label}</span>
-            </ContextMenu.Item>
-          {/if}
-          {#if on_request_rename_folder || on_request_delete_folder}
-            <ContextMenu.Separator />
-            {#if on_request_rename_folder}
-              <ContextMenu.Item
-                onSelect={() => {
-                  on_request_rename_folder(node.path);
-                }}
-              >
-                <Pencil class="mr-2 h-4 w-4" />
-                <span>Rename</span>
-              </ContextMenu.Item>
-            {/if}
-            {#if on_request_delete_folder}
-              <ContextMenu.Item
-                onSelect={() => {
-                  on_request_delete_folder(node.path);
-                }}
-              >
-                <Trash2 class="mr-2 h-4 w-4" />
-                <span>Delete</span>
-              </ContextMenu.Item>
             {/if}
           {/if}
         {/if}
@@ -434,22 +377,10 @@
             <Copy class="mr-2 h-4 w-4" />
             <span>Copy File Path</span>
           </ContextMenu.Item>
-          {#if on_reveal_in_file_manager}
-            <ContextMenu.Item
-              onSelect={() => on_reveal_in_file_manager(node.path)}
-            >
-              <FolderOpen class="mr-2 h-4 w-4" />
-              <span>{reveal_label}</span>
-            </ContextMenu.Item>
-          {/if}
-          {#if on_open_in_default_app}
-            <ContextMenu.Item
-              onSelect={() => on_open_in_default_app(node.path)}
-            >
+          {#if on_open_file}
+            <ContextMenu.Item onSelect={() => on_open_file(node.path)}>
               <ExternalLink class="mr-2 h-4 w-4" />
-              <span
-                >{is_web_build ? "在新标签页打开" : "Open in Default App"}</span
-              >
+              <span>Open in New Tab</span>
             </ContextMenu.Item>
           {/if}
           {#if on_request_rename || on_request_delete}
