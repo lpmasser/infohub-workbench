@@ -21,7 +21,9 @@ export type EditorSettings = {
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
-  attachment_folder: "assets",
+  // InfoHub keeps attachments beside their document, in "附件" inside the
+  // note's folder; nothing goes loose at the repository root.
+  attachment_folder: "附件",
   store_attachments_with_note: false,
   show_hidden_files: false,
   autosave_enabled: true,

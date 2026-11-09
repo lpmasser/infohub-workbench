@@ -303,7 +303,8 @@
               <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Attachment Folder</span>
                 <span class="SettingsDialog__description"
-                  >Used only when storing attachments next to the note is off</span
+                  >Created inside the note's folder; used when storing next to
+                  the note is off</span
                 >
               </div>
               <Input
@@ -316,7 +317,7 @@
                   update("attachment_folder", e.currentTarget.value);
                 }}
                 class="w-48"
-                placeholder="assets"
+                placeholder="附件"
                 aria-label="Attachment folder"
                 disabled={editor_settings.store_attachments_with_note}
               />

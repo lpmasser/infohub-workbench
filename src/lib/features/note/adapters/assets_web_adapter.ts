@@ -1,5 +1,6 @@
 import type { AssetsPort } from "$lib/features/note/ports";
 import { NoteExistsError } from "$lib/features/note/types/note_errors";
+import { attachment_target_folder } from "$lib/features/note/domain/attachment_folder";
 import {
   file_url,
   is_web_api_error,
@@ -41,8 +42,8 @@ export function create_assets_web_adapter(files: WebFiles): AssetsPort {
       return file_url(vault_id, asset_path);
     },
 
-    // Pasted images go next to the note or into the attachment folder at
-    // the root, named after the pasted file or the note.
+    // Pasted images go into the note's attachment folder (or next to the
+    // note), named after the pasted file or the note.
     async write_image_asset(vault_id, input) {
       require_workspace(vault_id);
       const { image } = input;
@@ -57,13 +58,7 @@ export function create_assets_web_adapter(files: WebFiles): AssetsPort {
           ? custom
           : `${custom}.${ext}`
         : `${sanitize_stem(image.file_name ? stem(image.file_name) : stem(input.note_path))}-${String(Date.now())}.${ext}`;
-      const folder = input.store_with_note
-        ? input.note_path.split("/").slice(0, -1).join("/")
-        : (input.attachment_folder ?? "assets");
-      if (folder.split("/").some((segment) => segment.startsWith(".")))
-        throw new Error(
-          `附件目录“${folder}”以点开头，服务器不允许；请在设置里换一个目录名或改为与笔记同目录`,
-        );
+      const folder = attachment_target_folder(input.note_path, input);
       const path = folder ? `${folder}/${filename}` : filename;
       try {
         await files.write(path, image.bytes, { create: true });

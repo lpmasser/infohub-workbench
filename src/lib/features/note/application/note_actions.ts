@@ -1,3 +1,4 @@
+import { DEFAULT_ATTACHMENT_FOLDER } from "$lib/features/note/domain/attachment_folder";
 import { ACTION_IDS } from "$lib/app/action_registry/action_ids";
 import type { ActionRegistrationInput } from "$lib/app/action_registry/action_registration_input";
 import {
@@ -505,7 +506,7 @@ export function register_note_actions(input: ActionRegistrationInput) {
         const settings = stores.ui.editor_settings;
         const target_folder = settings.store_attachments_with_note
           ? "(same folder as note)"
-          : settings.attachment_folder || "assets";
+          : `(note folder)/${settings.attachment_folder || DEFAULT_ATTACHMENT_FOLDER}`;
 
         stores.ui.image_paste_dialog = {
           open: true,
