@@ -3,6 +3,7 @@ import type { InfoHubService, InfoHubStore } from "$lib/features/infohub";
 import type { AnnotationService } from "$lib/features/annotation";
 import type { DeepLinkService, DeepLinkStore } from "$lib/features/deep_link";
 import { create_deep_link_sync_reactor } from "$lib/reactors/deep_link_sync.reactor.svelte";
+import { create_filetree_follow_reactor } from "$lib/reactors/filetree_follow.reactor.svelte";
 import { create_editor_sync_reactor } from "$lib/reactors/editor_sync.reactor.svelte";
 import { create_editor_width_reactor } from "$lib/reactors/editor_width.reactor.svelte";
 import { create_editor_zoom_reactor } from "$lib/reactors/editor_zoom.reactor.svelte";
@@ -65,6 +66,7 @@ export function mount_reactors(context: ReactorContext): () => void {
   const unmounts = [
     create_workspace_queries_reactor(context),
     create_deep_link_sync_reactor(context),
+    create_filetree_follow_reactor(context),
     create_editor_sync_reactor(
       context.editor_store,
       context.tab_store,

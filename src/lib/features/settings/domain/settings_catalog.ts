@@ -62,6 +62,22 @@ export const SETTINGS_REGISTRY: SettingDefinition[] = [
     ],
   },
   {
+    key: "filetree_auto_reveal",
+    label: "Auto Reveal Open File",
+    description:
+      "Expand and scroll the file tree to the open document whenever it is shown",
+    category: "Files",
+    keywords: [
+      "reveal",
+      "follow",
+      "sync",
+      "explorer",
+      "file tree",
+      "active file",
+      "scroll",
+    ],
+  },
+  {
     key: "autosave_enabled",
     label: "Autosave",
     description: "Automatically save markdown notes after edits",

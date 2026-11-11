@@ -143,6 +143,29 @@
     previous_nodes_count = next_count;
   });
 
+  // A revealed note scrolls into view once its row exists (its folders may
+  // still be loading), centred like VS Code; a row already on screen stays put.
+  let scrolled_reveal_path: string | null = null;
+  $effect(() => {
+    const v = $virtualizer;
+    const target = revealed_note_path;
+    if (!target) {
+      scrolled_reveal_path = null;
+      return;
+    }
+    if (!v || !scroll_container || target === scrolled_reveal_path) return;
+    const index = nodes.findIndex(
+      (node) => !node.is_load_more && node.path === target,
+    );
+    const view_height = scroll_container.clientHeight;
+    if (index < 0 || view_height === 0) return;
+    scrolled_reveal_path = target;
+    const top = index * ROW_HEIGHT;
+    const view_top = scroll_container.scrollTop;
+    if (top >= view_top && top + ROW_HEIGHT <= view_top + view_height) return;
+    v.scrollToIndex(index, { align: "center" });
+  });
+
   const virtual_items = $derived.by(() => {
     const current_nodes = nodes;
     void current_nodes;

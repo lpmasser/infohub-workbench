@@ -9,7 +9,7 @@ import {
 } from "$lib/features/folder/application/filetree_action_helpers";
 import {
   ancestor_folder_paths,
-  parse_reveal_note_path,
+  parse_reveal_note,
 } from "$lib/features/folder/application/folder_action_helpers";
 import { PAGE_SIZE } from "$lib/shared/constants/pagination";
 import type {
@@ -342,14 +342,15 @@ export function register_folder_actions(input: ActionRegistrationInput) {
     registry.register({
       id: ACTION_IDS.filetree_reveal_note,
       label: "Reveal Note In File Tree",
-      execute: (note_input: unknown) => {
-        const note_path = parse_reveal_note_path(note_input).trim();
+      execute: async (note_input: unknown) => {
+        const { note_path, show_explorer } = parse_reveal_note(note_input);
         if (!note_path) {
           return;
         }
 
+        const ancestors = ancestor_folder_paths(note_path);
         const expanded_paths = new SvelteSet(stores.ui.filetree.expanded_paths);
-        for (const folder_path of ancestor_folder_paths(note_path)) {
+        for (const folder_path of ancestors) {
           expanded_paths.add(folder_path);
         }
 
@@ -361,7 +362,11 @@ export function register_folder_actions(input: ActionRegistrationInput) {
         const folder = parent_folder_path(note_path);
         stores.ui.set_selected_folder_path(folder);
         stores.ui.set_filetree_revealed_note_path(note_path);
-        stores.ui.set_sidebar_view("explorer");
+        if (show_explorer) {
+          stores.ui.set_sidebar_view("explorer");
+        }
+
+        await Promise.all(ancestors.map((path) => load_folder(input, path)));
       },
     });
 
