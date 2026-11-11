@@ -326,6 +326,7 @@
         return settings.attachment_folder;
       case "store_attachments_with_note":
       case "show_hidden_files":
+      case "filetree_auto_reveal":
       case "autosave_enabled":
       case "show_vault_dashboard_on_open":
         return settings[key] ? "On" : "Off";

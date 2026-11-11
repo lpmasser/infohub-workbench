@@ -90,7 +90,11 @@ function create_tab_actions_harness() {
       reset_delete_operation: vi.fn(),
       reset_rename_operation: vi.fn(),
     },
-    folder: {},
+    folder: {
+      load_folder: vi
+        .fn()
+        .mockResolvedValue({ status: "loaded", total_count: 0 }),
+    },
     settings: {},
     search: {},
     editor: {
@@ -1326,6 +1330,26 @@ describe("register_tab_actions", () => {
       expect(stores.ui.selected_folder_path).toBe("");
       expect(stores.ui.filetree_revealed_note_path).toBe("root.md");
       expect(stores.ui.filetree.expanded_paths.size).toBe(0);
+    });
+
+    it("loads unopened ancestor folders and can leave the sidebar view alone", async () => {
+      const { registry, stores, services } = create_tab_actions_harness();
+      stores.ui.set_sidebar_view("starred");
+      stores.ui.filetree.load_states.set("docs", "loaded");
+
+      await registry.execute(ACTION_IDS.filetree_reveal_note, {
+        note_path: "docs/specs/note.md",
+        show_explorer: false,
+      });
+
+      expect(stores.ui.sidebar_view).toBe("starred");
+      expect(stores.ui.filetree_revealed_note_path).toBe("docs/specs/note.md");
+      expect(services.folder.load_folder).toHaveBeenCalledTimes(1);
+      expect(services.folder.load_folder).toHaveBeenCalledWith(
+        "docs/specs",
+        expect.any(Number),
+      );
+      expect(stores.ui.filetree.load_states.get("docs/specs")).toBe("loaded");
     });
   });
 

@@ -11,6 +11,7 @@ export type EditorSettings = {
   attachment_folder: string;
   store_attachments_with_note: boolean;
   show_hidden_files: boolean;
+  filetree_auto_reveal: boolean;
   autosave_enabled: boolean;
   autosave_delay_ms: number;
   show_vault_dashboard_on_open: boolean;
@@ -26,6 +27,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   attachment_folder: "附件",
   store_attachments_with_note: false,
   show_hidden_files: false,
+  filetree_auto_reveal: true,
   autosave_enabled: true,
   autosave_delay_ms: 2000,
   show_vault_dashboard_on_open: true,
@@ -39,6 +41,7 @@ export const SETTINGS_KEY = "editor" as const;
 
 export const GLOBAL_ONLY_SETTING_KEYS: readonly (keyof EditorSettings)[] = [
   "show_vault_dashboard_on_open",
+  "filetree_auto_reveal",
   "autosave_enabled",
   "autosave_delay_ms",
   "editor_max_width_ch",

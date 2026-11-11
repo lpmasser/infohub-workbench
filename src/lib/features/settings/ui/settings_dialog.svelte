@@ -339,6 +339,22 @@
             </div>
             <div class="SettingsDialog__row">
               <div class="SettingsDialog__label-group">
+                <span class="SettingsDialog__label">Auto Reveal Open File</span>
+                <span class="SettingsDialog__description"
+                  >Expand and scroll the file tree to the open document whenever
+                  it is shown</span
+                >
+              </div>
+              <Switch.Root
+                aria-label="Auto reveal open file"
+                checked={editor_settings.filetree_auto_reveal}
+                onCheckedChange={(v: boolean) => {
+                  update("filetree_auto_reveal", v);
+                }}
+              />
+            </div>
+            <div class="SettingsDialog__row">
+              <div class="SettingsDialog__label-group">
                 <span class="SettingsDialog__label">Autosave</span>
                 <span class="SettingsDialog__description"
                   >Automatically save Markdown notes after edits</span

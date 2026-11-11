@@ -1,11 +1,19 @@
-export function parse_reveal_note_path(input: unknown): string {
+// Payload of filetree.reveal_note: a path, or { note_path, show_explorer }.
+// Following the open document leaves the sidebar on whatever it shows.
+export function parse_reveal_note(input: unknown): {
+  note_path: string;
+  show_explorer: boolean;
+} {
   if (input && typeof input === "object" && "note_path" in input) {
     const record = input as Record<string, unknown>;
     if (typeof record.note_path === "string") {
-      return record.note_path;
+      return {
+        note_path: record.note_path.trim(),
+        show_explorer: record.show_explorer !== false,
+      };
     }
   }
-  return String(input);
+  return { note_path: String(input).trim(), show_explorer: true };
 }
 
 export function ancestor_folder_paths(note_path: string): string[] {
