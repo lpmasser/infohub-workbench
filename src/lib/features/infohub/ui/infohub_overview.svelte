@@ -97,10 +97,7 @@
           >
         </h2>
         {#each project.work as item (item.id)}
-          {@render document_row(
-            item,
-            `${String(item.frontmatter.requirement ?? "")}·${String(item.frontmatter.progress ?? "")}`,
-          )}
+          {@render document_row(item, String(item.progress ?? ""))}
         {/each}
         {#if project.work.length === 0}<p
             class="px-2 py-2 text-muted-foreground"

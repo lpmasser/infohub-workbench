@@ -3,6 +3,7 @@ export type HubObject = {
   type: string;
   title: string;
   path: string;
+  progress?: string;
   frontmatter: Record<string, unknown>;
 };
 export type Overview = {
